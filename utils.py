@@ -547,7 +547,10 @@ def train_satisfaction_model(df):
 
 def load_satisfaction_model(df):
     if os.path.exists(PREDICTOR_MODEL):
-        return joblib.load(PREDICTOR_MODEL)
+        try:
+            return joblib.load(PREDICTOR_MODEL)
+        except Exception:
+            pass
     return train_satisfaction_model(df)
 
 
@@ -559,14 +562,20 @@ def train_segmentation_model(df):
     X_scaled = scaler.fit_transform(X)
     kmeans = KMeans(n_clusters=4, random_state=42, n_init=10)
     kmeans.fit(X_scaled)
-    joblib.dump(kmeans, CLUSTER_MODEL)
-    joblib.dump(scaler, SCALER_MODEL)
+    try:
+        joblib.dump(kmeans, CLUSTER_MODEL)
+        joblib.dump(scaler, SCALER_MODEL)
+    except Exception:
+        pass
     return kmeans, scaler
 
 
 def load_segmentation_model(df):
     if os.path.exists(CLUSTER_MODEL) and os.path.exists(SCALER_MODEL):
-        return joblib.load(CLUSTER_MODEL), joblib.load(SCALER_MODEL)
+        try:
+            return joblib.load(CLUSTER_MODEL), joblib.load(SCALER_MODEL)
+        except Exception:
+            pass
     return train_segmentation_model(df)
 
 
