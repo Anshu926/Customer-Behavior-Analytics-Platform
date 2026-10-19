@@ -1,11 +1,12 @@
 """
 Utility functions for model training, loading, data processing, and enterprise styling.
+Dataset schema: Gender, Age, Income_Level, Region, Avg_Spend, Membership, Satisfaction_Score.
 """
 import streamlit as st
 import os
 import pandas as pd
 import numpy as np
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 import joblib
@@ -14,29 +15,26 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # ============================================================================
-# CONSTANTS & FEATURE MAPPINGS  (10k Consumer Behaviour Dataset)
+# CONSTANTS & FEATURE MAPPINGS
 # ============================================================================
 DATA_FILE = "clean_customer_data.csv"
 PREDICTOR_MODEL = "predictor.pkl"
 CLUSTER_MODEL = "cluster.pkl"
 SCALER_MODEL = "scaler.pkl"
 
-GENDER_MAPPING    = {"F": 0, "M": 1, "Other": 2}
-GENDER_REVERSE    = {0: "F", 1: "M", 2: "Other"}
-INCOME_MAPPING    = {"Low": 0, "Medium": 1, "High": 2}
-INCOME_REVERSE    = {0: "Low", 1: "Medium", 2: "High"}
-REGION_MAPPING    = {"Rural": 0, "Semi-Urban": 1, "Urban": 2}
-REGION_REVERSE    = {0: "Rural", 1: "Semi-Urban", 2: "Urban"}
-CATEGORY_MAPPING  = {"Apparel": 0, "Electronics": 1, "Groceries": 2,
-                     "Health & Beauty": 3, "Home & Kitchen": 4, "Sports & Fitness": 5}
-CATEGORY_REVERSE  = {v: k for k, v in CATEGORY_MAPPING.items()}
-PAYMENT_MAPPING   = {"Cash": 0, "Credit Card": 1, "Debit Card": 2, "UPI": 3, "Wallet": 4}
-PAYMENT_REVERSE   = {v: k for k, v in PAYMENT_MAPPING.items()}
-LOYALTY_MAPPING   = {"No": 0, "Yes": 1}
+GENDER_MAPPING     = {"F": 0, "M": 1, "Other": 2}
+GENDER_REVERSE     = {0: "F", 1: "M", 2: "Other"}
+INCOME_MAPPING     = {"Low": 0, "Medium": 1, "High": 2}
+INCOME_REVERSE     = {0: "Low", 1: "Medium", 2: "High"}
+REGION_MAPPING     = {"Rural": 0, "Semi-Urban": 1, "Urban": 2}
+REGION_REVERSE     = {0: "Rural", 1: "Semi-Urban", 2: "Urban"}
+MEMBERSHIP_MAPPING = {"No": 0, "Yes": 1}
+MEMBERSHIP_REVERSE = {0: "No", 1: "Yes"}
+
 SATISFACTION_MAPPING = {0: "Low Satisfaction", 1: "Moderate Satisfaction", 2: "High Satisfaction"}
-PRED_FEATURE_COLS = ["Age", "Gender_Enc", "Income_Enc", "Region_Enc",
-                     "Category_Enc", "Avg_Spend", "Payment_Enc", "Loyalty_Enc"]
-SEG_FEATURE_COLS  = ["Age", "Income_Enc", "Avg_Spend", "Category_Enc", "Loyalty_Enc"]
+
+PRED_FEATURE_COLS = ["Age", "Gender_Enc", "Income_Enc", "Region_Enc", "Avg_Spend", "Membership_Enc"]
+SEG_FEATURE_COLS  = ["Age", "Gender_Enc", "Income_Enc", "Region_Enc", "Avg_Spend", "Membership_Enc"]
 
 # ============================================================================
 # FONT AWESOME CDN & GLOBAL DESIGN SYSTEM
@@ -136,7 +134,6 @@ div[data-testid="stToolbar"] {
 }
 
 /* ── Sidebar shell & Permanent Open ────────────────────────────────────────── */
-
 [data-testid="stSidebarNav"],
 [data-testid="stSidebarCollapseButton"],
 [data-testid="stSidebarCollapsedControl"],
@@ -165,7 +162,6 @@ section[data-testid="stSidebar"] {
     margin-left: 0 !important;
 }
 section[data-testid="stSidebar"] > div { padding: 0 !important; }
-
 
 /* ── Sidebar nav links ─────────────────────────────────────────────────────── */
 .sb-nav-link {
@@ -231,54 +227,16 @@ section[data-testid="stSidebar"] > div { padding: 0 !important; }
 [data-testid="stMetricValue"] { color: var(--text-primary) !important; font-size: 1.55rem !important; font-weight: 700 !important; }
 [data-testid="stMetricDelta"] { font-size: 0.75rem !important; }
 
-/* ── Ultra-Forceful Button Text & Style ────────────────────────────────────── */
-button,
-button *,
-button p,
-button span,
-button div,
-[data-testid*="Button"],
-[data-testid*="Button"] *,
-[data-testid*="Button"] p,
-[data-testid*="Button"] span,
-[data-testid*="Button"] div,
-.stButton,
-.stButton *,
-.stButton button,
-.stButton button *,
-.stButton button p,
-.stButton button span,
-.stButton button div,
-[data-testid="baseButton-secondary"],
-[data-testid="baseButton-secondary"] *,
-[data-testid="baseButton-secondary"] p,
-[data-testid="baseButton-primary"],
-[data-testid="baseButton-primary"] *,
-[data-testid="baseButton-primary"] p,
-[data-testid="stBaseButton-secondary"],
-[data-testid="stBaseButton-secondary"] *,
-[data-testid="stBaseButton-secondary"] p,
-[data-testid="stBaseButton-primary"],
-[data-testid="stBaseButton-primary"] *,
-[data-testid="stBaseButton-primary"] p,
-button[kind="secondary"],
-button[kind="secondary"] *,
-button[kind="secondary"] p,
-button[kind="primary"],
-button[kind="primary"] *,
-button[kind="primary"] p {
+/* ── Forceful Button Text & Style ─────────────────────────────────────────── */
+button, button *, button p, button span, [data-testid*="Button"], [data-testid*="Button"] * {
     color: #FFFFFF !important;
     -webkit-text-fill-color: #FFFFFF !important;
     font-weight: 700 !important;
     font-size: 0.95rem !important;
     letter-spacing: 0.02em !important;
 }
-
 div[data-testid="stButton"] > button,
-div[data-testid="stButton"] button,
-button[data-testid*="Button"],
-button[kind="secondary"],
-button[kind="primary"] {
+div[data-testid="stButton"] button {
     background: linear-gradient(135deg, #6366F1 0%, #4F46E5 100%) !important;
     border: 1px solid rgba(255, 255, 255, 0.25) !important;
     border-radius: 10px !important;
@@ -288,81 +246,13 @@ button[kind="primary"] {
     box-shadow: 0 4px 14px rgba(99,102,241,0.4) !important;
     min-height: 44px !important;
 }
-
-/* ── Dataset / Kaggle Action Buttons (Forced White Text) ───────────────────── */
-.kaggle-btn,
-.kaggle-btn *,
-.kaggle-btn span,
-.kaggle-btn i,
-.kaggle-btn svg,
-a.kaggle-btn,
-a.kaggle-btn:hover,
-a.kaggle-btn:visited,
-a.kaggle-btn:active,
-a.kaggle-btn * {
-    color: #FFFFFF !important;
-    -webkit-text-fill-color: #FFFFFF !important;
-    text-decoration: none !important;
-}
-.kaggle-btn {
-    display: inline-flex !important;
-    align-items: center !important;
-    gap: 0.5rem !important;
-    background: linear-gradient(135deg, #4F46E5 0%, #6366F1 100%) !important;
-    border: 1px solid rgba(255, 255, 255, 0.2) !important;
-    border-radius: 8px !important;
-    padding: 0.6rem 1.25rem !important;
-    font-size: 0.85rem !important;
-    font-weight: 600 !important;
-    box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4) !important;
-    transition: transform 0.2s ease, box-shadow 0.2s ease !important;
-}
-.kaggle-btn:hover {
-    transform: translateY(-1px) !important;
-    box-shadow: 0 6px 18px rgba(99, 102, 241, 0.55) !important;
-}
-
-div[data-testid="stButton"] > button:hover,
-div[data-testid="stButton"] button:hover {
+div[data-testid="stButton"] > button:hover {
     transform: translateY(-2px) !important;
     box-shadow: 0 8px 24px rgba(99,102,241,0.6) !important;
     filter: brightness(1.12) !important;
-    border-color: rgba(255, 255, 255, 0.5) !important;
 }
 
-div[data-testid="stButton"] > button:active,
-div[data-testid="stButton"] button:active {
-    transform: translateY(0) !important;
-    filter: brightness(0.95) !important;
-}
-
-/* ── Inputs ────────────────────────────────────────────────────────────────── */
-
-[data-testid="stSelectbox"] > div > div,
-[data-baseweb="select"] > div {
-    background: var(--bg-card) !important; border: 1px solid var(--border) !important;
-    border-radius: 8px !important; color: var(--text-primary) !important;
-}
-
-/* ── Alert boxes ───────────────────────────────────────────────────────────── */
-[data-testid="stInfo"]    { background: rgba(99,102,241,0.08)  !important; border: 1px solid rgba(99,102,241,0.28)  !important; border-radius: 10px !important; }
-[data-testid="stWarning"] { background: rgba(245,158,11,0.08)  !important; border: 1px solid rgba(245,158,11,0.28)  !important; border-radius: 10px !important; }
-[data-testid="stError"]   { background: rgba(239,68,68,0.08)   !important; border: 1px solid rgba(239,68,68,0.28)   !important; border-radius: 10px !important; }
-[data-testid="stSuccess"] { background: rgba(16,185,129,0.08)  !important; border: 1px solid rgba(16,185,129,0.28)  !important; border-radius: 10px !important; }
-
-/* ── DataFrame ─────────────────────────────────────────────────────────────── */
-[data-testid="stDataFrame"] { border-radius: 12px !important; overflow: hidden !important; border: 1px solid var(--border) !important; }
-
-/* ── Animations ────────────────────────────────────────────────────────────── */
-@keyframes fadeInUp  { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:translateY(0); } }
-@keyframes fadeIn    { from { opacity:0; } to { opacity:1; } }
-@keyframes glowPulse { 0%,100% { box-shadow:0 0 14px var(--accent-glow); } 50% { box-shadow:0 0 32px var(--accent-glow); } }
-
-/* ═══════════════════════════════════════════════════════════════
-   REUSABLE COMPONENT CLASSES
-   ═══════════════════════════════════════════════════════════════ */
-
-/* Glass metric card */
+/* ── Reusable Classes ──────────────────────────────────────────────────────── */
 .pro-card {
     background: linear-gradient(135deg, #111827 0%, #1A2234 100%);
     border: 1px solid var(--border-soft);
@@ -370,7 +260,6 @@ div[data-testid="stButton"] button:active {
     padding: 1.25rem 1.4rem;
     text-align: center;
     transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
-    animation: fadeInUp 0.35s ease both;
 }
 .pro-card:hover { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(0,0,0,0.45); border-color: rgba(99,102,241,0.35); }
 .pro-card .card-fa-icon { font-size: 1.2rem; color: var(--accent); margin-bottom: 0.6rem; display: block; }
@@ -380,9 +269,7 @@ div[data-testid="stButton"] button:active {
 .card-delta.positive { color: #34D399; }
 .card-delta.neutral  { color: #FCD34D; }
 .card-delta.info     { color: #60A5FA; }
-.card-delta.muted    { color: var(--text-muted); }
 
-/* Hero banner */
 .hero-banner {
     background: linear-gradient(135deg, #0F172A 0%, #1E1B4B 55%, #0F172A 100%);
     border: 1px solid rgba(99,102,241,0.2);
@@ -390,19 +277,6 @@ div[data-testid="stButton"] button:active {
     padding: 2.2rem 2.6rem;
     margin-bottom: 1.75rem;
     position: relative; overflow: hidden;
-    animation: fadeIn 0.5s ease both;
-}
-.hero-banner::before {
-    content: ''; position: absolute; top: -60%; right: -8%;
-    width: 340px; height: 340px;
-    background: radial-gradient(circle, rgba(99,102,241,0.13) 0%, transparent 68%);
-    pointer-events: none;
-}
-.hero-banner::after {
-    content: ''; position: absolute; bottom: -40%; left: -5%;
-    width: 220px; height: 220px;
-    background: radial-gradient(circle, rgba(16,185,129,0.07) 0%, transparent 68%);
-    pointer-events: none;
 }
 .hero-tag {
     display: inline-flex; align-items: center; gap: 0.45rem;
@@ -412,64 +286,44 @@ div[data-testid="stButton"] button:active {
     font-size: 0.7rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
     padding: 0.22rem 0.7rem; border-radius: 50px; margin-bottom: 0.85rem;
 }
-.hero-banner h1 {
-    font-size: 2.1rem !important;
-    background: linear-gradient(135deg, #F1F5F9 30%, #A5B4FC 100%) !important;
-    -webkit-background-clip: text !important; -webkit-text-fill-color: transparent !important;
-    background-clip: text !important;
-    margin: 0 0 0.6rem 0 !important; letter-spacing: -0.05em !important;
-}
 .hero-sub { color: var(--text-muted); font-size: 0.92rem; line-height: 1.65; max-width: 580px; }
 
-/* Section header */
 .section-header { display: flex; align-items: center; gap: 0.6rem; margin: 1.6rem 0 1rem 0; }
 .section-accent { width: 4px; height: 20px; background: linear-gradient(180deg, #6366F1 0%, #4F46E5 100%); border-radius: 2px; flex-shrink: 0; }
 
-/* Feature card */
 .feature-card {
     background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px;
-    padding: 1.4rem 1.5rem; height: 100%;
-    transition: all 0.22s ease; animation: fadeInUp 0.4s ease both;
+    padding: 1.4rem 1.5rem; height: 100%; transition: all 0.22s ease;
 }
 .feature-card:hover { border-color: rgba(99,102,241,0.4); transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,0,0,0.35); }
 .feature-card .fc-icon-wrap {
-    width: 40px; height: 40px;
-    background: rgba(99,102,241,0.1);
-    border: 1px solid rgba(99,102,241,0.2);
-    border-radius: 10px;
+    width: 40px; height: 40px; background: rgba(99,102,241,0.1);
+    border: 1px solid rgba(99,102,241,0.2); border-radius: 10px;
     display: flex; align-items: center; justify-content: center;
-    margin-bottom: 0.85rem;
-    font-size: 0.95rem; color: var(--accent);
+    margin-bottom: 0.85rem; font-size: 0.95rem; color: var(--accent);
 }
 .feature-card .fc-title { color: var(--text-primary); font-size: 0.95rem; font-weight: 600; margin-bottom: 0.5rem; }
 .feature-card .fc-desc  { color: var(--text-muted); font-size: 0.82rem; line-height: 1.6; }
 
-/* Insight panel */
 .insight-panel {
     background: var(--bg-card); border: 1px solid var(--border-soft); border-radius: 12px;
     padding: 1.3rem 1.5rem; margin-bottom: 1rem;
-    animation: fadeInUp 0.4s ease both; transition: border-color 0.22s ease;
 }
-.insight-panel:hover { border-color: rgba(99,102,241,0.38); }
 .insight-panel .ip-num { color: var(--accent); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 0.35rem; }
 .insight-panel h4 { color: var(--text-primary) !important; font-size: 0.97rem !important; font-weight: 600 !important; margin: 0 0 0.55rem 0 !important; }
 
-/* Recommendation card */
 .rec-card {
     background: var(--bg-card); border: 1px solid var(--border-soft);
     border-top: 3px solid var(--accent); border-radius: 12px;
     padding: 1.2rem 1.4rem; margin-bottom: 0.85rem;
-    animation: fadeInUp 0.4s ease both;
 }
 .rec-card .rc-title { color: var(--text-primary); font-size: 0.95rem; font-weight: 600; margin-bottom: 0.45rem; }
 .rec-card .rc-desc  { color: var(--text-soft); font-size: 0.82rem; line-height: 1.55; margin-bottom: 0.6rem; }
 .rc-meta { display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; }
 
-/* Segment card */
 .seg-card {
     background: var(--bg-card); border: 1px solid var(--border-soft); border-radius: 14px;
-    padding: 1.3rem 1.5rem; margin-bottom: 1rem;
-    animation: fadeInUp 0.4s ease both; transition: transform 0.2s ease, box-shadow 0.2s ease;
+    padding: 1.3rem 1.5rem; margin-bottom: 1rem; transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 .seg-card:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(0,0,0,0.35); }
 .seg-card .sc-header { display: flex; align-items: center; gap: 0.65rem; margin-bottom: 0.9rem; padding-bottom: 0.7rem; border-bottom: 1px solid var(--border); }
@@ -480,29 +334,22 @@ div[data-testid="stButton"] button:active {
 .seg-card .sc-stat-label { color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.1rem; }
 .seg-card .sc-stat-value { color: var(--text-primary); font-size: 0.9rem; font-weight: 600; }
 
-/* Badges */
 .badge { display: inline-block; padding: 0.18rem 0.55rem; border-radius: 50px; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.04em; }
 .badge-green  { background: rgba(16,185,129,0.14);  color: #34D399; border: 1px solid rgba(16,185,129,0.28); }
 .badge-amber  { background: rgba(245,158,11,0.14);  color: #FCD34D; border: 1px solid rgba(245,158,11,0.28); }
 .badge-red    { background: rgba(239,68,68,0.14);   color: #FCA5A5; border: 1px solid rgba(239,68,68,0.28); }
 .badge-indigo { background: rgba(99,102,241,0.14);  color: #A5B4FC; border: 1px solid rgba(99,102,241,0.28); }
-.badge-gray   { background: rgba(100,116,139,0.14); color: #94A3B8; border: 1px solid rgba(100,116,139,0.28); }
 
-/* Result display */
-.result-card { border-radius: 14px; padding: 1.6rem; text-align: center; animation: fadeInUp 0.4s ease both; }
+.result-card { border-radius: 14px; padding: 1.4rem; text-align: center; }
 .result-card .rc-label  { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 0.5rem; opacity: 0.8; }
-.result-card .rc-value  { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.02em; }
+.result-card .rc-value  { font-size: 1.55rem; font-weight: 700; letter-spacing: -0.02em; }
 </style>
 """
 
-
 def apply_global_styles():
-    """Inject Font Awesome CDN + design-system CSS."""
     st.markdown(FA_CDN + GLOBAL_CSS, unsafe_allow_html=True)
 
-
 def get_chart_layout(height=400, show_legend=True, title="", margin=None):
-    """Return a consistent Plotly dark-theme layout dict."""
     base_margin = margin or dict(l=20, r=20, t=44 if title else 20, b=20)
     return dict(
         template="plotly_dark",
@@ -518,16 +365,13 @@ def get_chart_layout(height=400, show_legend=True, title="", margin=None):
         legend=dict(bgcolor="rgba(17,24,39,0.8)", bordercolor="#1F2D45", borderwidth=1, font=dict(size=11, color="#94A3B8")),
     )
 
-
 # ============================================================================
 # DATA LOADING
 # ============================================================================
 def load_data():
     if os.path.exists(DATA_FILE):
-        df = pd.read_csv(DATA_FILE)
-        return df
+        return pd.read_csv(DATA_FILE)
     raise FileNotFoundError(f"{DATA_FILE} not found.")
-
 
 def get_data_stats(df):
     return {
@@ -536,30 +380,38 @@ def get_data_stats(df):
         "avg_score":       df["Satisfaction_Score"].mean(),
         "avg_age":         df["Age"].mean(),
         "total_revenue":   df["Avg_Spend"].sum(),
-        "loyalty_pct":     (df["Loyalty_Member"] == "Yes").mean() * 100,
+        "membership_pct":  (df["Membership"] == "Yes").mean() * 100,
     }
-
 
 # ============================================================================
 # MODEL TRAINING & LOADING
 # ============================================================================
 def train_satisfaction_model(df):
     X = df[PRED_FEATURE_COLS].copy()
-    y = df["Satisfaction_Class"].astype(int)
-    model = RandomForestClassifier(n_estimators=150, max_depth=12, min_samples_split=4,
-                                   min_samples_leaf=2, random_state=42, n_jobs=-1)
-    model.fit(X, y)
-    try: joblib.dump(model, PREDICTOR_MODEL)
-    except Exception: pass
-    return model
+    y_class = df["Satisfaction_Class"].astype(int)
+    y_score = df["Satisfaction_Score"].astype(float)
 
+    clf = RandomForestClassifier(n_estimators=150, max_depth=12, min_samples_split=4,
+                                 min_samples_leaf=2, random_state=42, n_jobs=-1)
+    clf.fit(X, y_class)
+
+    reg = RandomForestRegressor(n_estimators=150, max_depth=12, min_samples_split=4,
+                                min_samples_leaf=2, random_state=42, n_jobs=-1)
+    reg.fit(X, y_score)
+
+    bundle = {"classifier": clf, "regressor": reg}
+    try: joblib.dump(bundle, PREDICTOR_MODEL)
+    except Exception: pass
+    return bundle
 
 def load_satisfaction_model(df):
     if os.path.exists(PREDICTOR_MODEL):
-        try: return joblib.load(PREDICTOR_MODEL)
+        try:
+            bundle = joblib.load(PREDICTOR_MODEL)
+            if isinstance(bundle, dict) and "classifier" in bundle:
+                return bundle
         except Exception: pass
     return train_satisfaction_model(df)
-
 
 def train_segmentation_model(df):
     X = df[SEG_FEATURE_COLS].copy()
@@ -573,98 +425,109 @@ def train_segmentation_model(df):
     except Exception: pass
     return kmeans, scaler
 
-
 def load_segmentation_model(df):
     if os.path.exists(CLUSTER_MODEL) and os.path.exists(SCALER_MODEL):
         try: return joblib.load(CLUSTER_MODEL), joblib.load(SCALER_MODEL)
         except Exception: pass
     return train_segmentation_model(df)
 
-
 def get_cluster_labels():
-    return {0: "High-Value Loyalists", 1: "Budget Shoppers", 2: "Premium Explorers", 3: "Occasional Buyers"}
-
+    return {
+        0: "Male Loyalty Members",
+        1: "Female Non-Members",
+        2: "Female Loyalty Members",
+        3: "Male Non-Members"
+    }
 
 # ============================================================================
 # PREDICTION UTILITIES
 # ============================================================================
 def prepare_input_for_prediction(user_input):
     return pd.DataFrame([{
-        "Age":          user_input["age"],
-        "Gender_Enc":   GENDER_MAPPING[user_input["gender"]],
-        "Income_Enc":   INCOME_MAPPING[user_input["income"]],
-        "Region_Enc":   REGION_MAPPING[user_input["region"]],
-        "Category_Enc": CATEGORY_MAPPING[user_input["category"]],
-        "Avg_Spend":    user_input["avg_spend"],
-        "Payment_Enc":  PAYMENT_MAPPING[user_input["payment"]],
-        "Loyalty_Enc":  LOYALTY_MAPPING[user_input["loyalty"]],
+        "Age":            user_input["age"],
+        "Gender_Enc":     GENDER_MAPPING[user_input["gender"]],
+        "Income_Enc":     INCOME_MAPPING[user_input["income"]],
+        "Region_Enc":     REGION_MAPPING[user_input["region"]],
+        "Avg_Spend":      user_input["avg_spend"],
+        "Membership_Enc": MEMBERSHIP_MAPPING[user_input["membership"]],
     }])
 
+def predict_satisfaction(model_bundle, input_df):
+    clf = model_bundle["classifier"]
+    reg = model_bundle["regressor"]
+    pred_class = clf.predict(input_df)[0]
+    probas     = clf.predict_proba(input_df)[0]
+    score      = float(reg.predict(input_df)[0])
+    score_clamped = max(1.0, min(5.0, score))
 
-def predict_satisfaction(model, input_df):
-    prediction = model.predict(input_df)[0]
-    probas     = model.predict_proba(input_df)[0]
     return {
-        "prediction": SATISFACTION_MAPPING[prediction],
-        "confidence": max(probas) * 100,
-        "class":      prediction,
-        "probas":     probas,
+        "predicted_score": score_clamped,
+        "prediction":      SATISFACTION_MAPPING[pred_class],
+        "confidence":      max(probas) * 100,
+        "class":           pred_class,
+        "probas":          probas,
     }
-
 
 def get_satisfaction_recommendation(result):
     if result["class"] == 2:
-        return "Customer is highly satisfied. Focus on loyalty rewards and upsell premium products."
+        return "Customer is highly satisfied. Recommended action: reward with VIP perks, referral bonuses, and early access to high-value offers."
     elif result["class"] == 1:
-        return "Moderate satisfaction. Personalise offers and improve post-purchase experience."
-    return "Low satisfaction alert! Immediate outreach recommended — offer exclusive deals and priority support."
-
+        return "Moderate satisfaction. Recommended action: engage with personalized membership upgrades, targeted discounts, and service surveys."
+    return "Low satisfaction alert! Recommended action: proactive retention outreach, dedicated customer support resolution, and compensatory loyalty incentives."
 
 # ============================================================================
 # SEGMENTATION UTILITIES
 # ============================================================================
 def segment_customer(kmeans, scaler, user_input):
     input_df = pd.DataFrame([{
-        "Age":          user_input["age"],
-        "Income_Enc":   INCOME_MAPPING[user_input["income"]],
-        "Avg_Spend":    user_input["avg_spend"],
-        "Category_Enc": CATEGORY_MAPPING[user_input["category"]],
-        "Loyalty_Enc":  LOYALTY_MAPPING[user_input["loyalty"]],
+        "Age":            user_input["age"],
+        "Gender_Enc":     GENDER_MAPPING[user_input["gender"]],
+        "Income_Enc":     INCOME_MAPPING[user_input["income"]],
+        "Region_Enc":     REGION_MAPPING[user_input["region"]],
+        "Avg_Spend":      user_input["avg_spend"],
+        "Membership_Enc": MEMBERSHIP_MAPPING[user_input["membership"]],
     }])
     return get_cluster_labels()[kmeans.predict(scaler.transform(input_df))[0]]
 
-
-def get_feature_importance(model):
+def get_feature_importance(model_bundle):
+    clf = model_bundle["classifier"]
     return pd.DataFrame({
         "Feature": PRED_FEATURE_COLS,
-        "Importance": model.feature_importances_
+        "Importance": clf.feature_importances_
     }).sort_values("Importance", ascending=False)
-
 
 def get_business_insights(df):
     insights = {}
-    top_cat = df.groupby("Purchase_Category")["Avg_Spend"].mean().idxmax()
-    insights["top_category"]       = top_cat
-    insights["top_category_spend"] = df.groupby("Purchase_Category")["Avg_Spend"].mean().max()
-    insights["loyalty_count"]      = (df["Loyalty_Member"] == "Yes").sum()
-    insights["loyalty_pct"]        = (df["Loyalty_Member"] == "Yes").mean() * 100
-    insights["high_sat_count"]     = (df["Satisfaction_Class"] == 2).sum()
-    insights["low_sat_count"]      = (df["Satisfaction_Class"] == 0).sum()
-    insights["mod_sat_count"]      = (df["Satisfaction_Class"] == 1).sum()
-    insights["spend_sat_corr"]     = df["Avg_Spend"].corr(df["Satisfaction_Score"])
+    total = len(df)
+    insights["total_customers"]   = total
+    insights["membership_count"]  = int((df["Membership"] == "Yes").sum())
+    insights["membership_pct"]    = (df["Membership"] == "Yes").mean() * 100
+    insights["high_sat_count"]    = int((df["Satisfaction_Class"] == 2).sum())
+    insights["mod_sat_count"]     = int((df["Satisfaction_Class"] == 1).sum())
+    insights["low_sat_count"]     = int((df["Satisfaction_Class"] == 0).sum())
+    insights["low_sat_pct"]       = (insights["low_sat_count"] / total) * 100
+    insights["spend_sat_corr"]    = float(df["Avg_Spend"].corr(df["Satisfaction_Score"]))
+
     top_region = df.groupby("Region")["Avg_Spend"].mean().idxmax()
-    insights["top_region"]         = top_region
-    insights["top_region_spend"]   = df.groupby("Region")["Avg_Spend"].mean().max()
-    low_sat = df[df["Satisfaction_Class"] == 0]
-    insights["low_sat_pct"]        = len(low_sat) / len(df) * 100
+    insights["top_region"]        = top_region
+    insights["top_region_spend"]  = float(df.groupby("Region")["Avg_Spend"].mean().max())
+
+    top_income = df.groupby("Income_Level")["Avg_Spend"].mean().idxmax()
+    insights["top_income"]        = top_income
+    insights["top_income_spend"]  = float(df.groupby("Income_Level")["Avg_Spend"].mean().max())
+
+    mem_spend_diff = float(df[df["Membership"] == "Yes"]["Avg_Spend"].mean() - df[df["Membership"] == "No"]["Avg_Spend"].mean())
+    insights["mem_spend_diff"]    = mem_spend_diff
+
+    mem_sat_diff = float(df[df["Membership"] == "Yes"]["Satisfaction_Score"].mean() - df[df["Membership"] == "No"]["Satisfaction_Score"].mean())
+    insights["mem_sat_diff"]      = mem_sat_diff
+
     return insights
 
-
 # ============================================================================
-# SIDEBAR NAVIGATION (Stylish FA Icons + Pure HTML Render)
+# SIDEBAR NAVIGATION
 # ============================================================================
 def render_sidebar(active_page: str):
-    """Render branded sidebar with FA icons and inject global styles."""
     apply_global_styles()
 
     nav_items = [
@@ -718,30 +581,28 @@ def render_sidebar(active_page: str):
     <div style="padding:0 0.6rem;">
         <div style="background: rgba(17,24,39,0.85); border: 1px solid rgba(99,102,241,0.15); border-radius: 12px; padding: 0.9rem 1rem; box-shadow: 0 4px 20px rgba(0,0,0,0.25);">
             <div style="color:#64748B; font-size:0.65rem; font-weight:700; letter-spacing:0.15em; text-transform:uppercase; margin-bottom:0.65rem; display:flex; align-items:center; gap:0.4rem;">
-                <i class="fa-solid fa-circle-info" style="color:#6366F1;"></i> Platform Info
+                <i class="fa-solid fa-circle-info" style="color:#6366F1;"></i> Dataset Features
             </div>
 
             <div style="display:flex;justify-content:space-between;align-items:center;padding:0.3rem 0;font-size:0.75rem;border-bottom:1px solid rgba(255,255,255,0.04);">
                 <span style="color:#94A3B8;display:flex;align-items:center;gap:0.45rem;">
-                    <i class="fa-solid fa-robot" style="width:14px;color:#6366F1;"></i> ML Models
+                    <i class="fa-solid fa-database" style="width:14px;color:#6366F1;"></i> Records
                 </span>
-                <span style="color:#F1F5F9;font-weight:600;">RF &middot; KMeans</span>
+                <span style="color:#F1F5F9;font-weight:600;">10,000</span>
             </div>
 
             <div style="display:flex;justify-content:space-between;align-items:center;padding:0.3rem 0;font-size:0.75rem;border-bottom:1px solid rgba(255,255,255,0.04);">
                 <span style="color:#94A3B8;display:flex;align-items:center;gap:0.45rem;">
-                    <i class="fa-solid fa-database" style="width:14px;color:#6366F1;"></i> Dataset
+                    <i class="fa-solid fa-sliders" style="width:14px;color:#6366F1;"></i> Target
                 </span>
-                <span style="color:#F1F5F9;font-weight:600;">E-Commerce</span>
+                <span style="color:#F1F5F9;font-weight:600;">Satisfaction_Score</span>
             </div>
 
             <div style="display:flex;justify-content:space-between;align-items:center;padding:0.3rem 0;font-size:0.75rem;border-bottom:1px solid rgba(255,255,255,0.04);">
                 <span style="color:#94A3B8;display:flex;align-items:center;gap:0.45rem;">
-                    <i class="fa-solid fa-link" style="width:14px;color:#20BEFF;"></i> Source
+                    <i class="fa-solid fa-id-card" style="width:14px;color:#6366F1;"></i> Status
                 </span>
-                <a href="https://www.kaggle.com/datasets/uom190346a/e-commerce-customer-behavior-dataset" target="_blank" style="color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important; text-decoration:none; font-weight:700; font-size:0.72rem; display:flex; align-items:center; gap:0.25rem;">
-                    Kaggle <i class="fa-solid fa-arrow-up-right-from-square" style="font-size:0.6rem; color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important;"></i>
-                </a>
+                <span style="color:#F1F5F9;font-weight:600;">Membership</span>
             </div>
 
             <div style="display:flex;justify-content:space-between;align-items:center;padding:0.3rem 0;font-size:0.75rem;">

@@ -38,10 +38,9 @@ st.markdown(f"""
     </div>
     <h1>Customer Behavior Analytics Platform</h1>
     <p class="hero-sub">
-        Advanced customer intelligence powered by machine learning —
-        built on <strong>10,000 synthetic consumer records</strong>.
-        Predict satisfaction, discover behavioral segments, and unlock
-        actionable insights, all in one enterprise-grade platform.
+        Predict customer <strong>Satisfaction_Score</strong>, uncover customer segments,
+        and generate strategic business insights across <strong>10,000 customer records</strong>
+        using core behavioral and demographic attributes.
     </p>
 </div>
 """, unsafe_allow_html=True)
@@ -52,8 +51,8 @@ if models_ready and stats:
     ribbon = [
         (c1, "fa-users",           "Total Customers",        f"{stats['total_customers']:,}",          "positive", "Active records"),
         (c2, "fa-dollar-sign",     "Average Spend",          f"${stats['avg_spend']:.2f}",             "positive", "Per customer"),
-        (c3, "fa-arrow-trend-up",  "Total Revenue",          f"${stats['total_revenue']:,.0f}",        "positive", "Lifetime value"),
-        (c4, "fa-star",            "Avg Satisfaction Score", f"{stats['avg_score']:.2f} / 5.0",        "neutral",  "Customer score"),
+        (c3, "fa-arrow-trend-up",  "Total Revenue",          f"${stats['total_revenue']:,.0f}",        "positive", "Combined spend"),
+        (c4, "fa-star",            "Avg Satisfaction Score", f"{stats['avg_score']:.2f} / 5.0",        "neutral",  "Target metric"),
     ]
     for col, icon, label, value, cls, sub in ribbon:
         with col:
@@ -81,13 +80,13 @@ st.markdown("""
 fc1, fc2, fc3, fc4 = st.columns(4, gap="small")
 features = [
     (fc1, "fa-chart-line",  "Business Dashboard",
-     "Visualise KPIs and customer metrics across demographics, categories, and regions. Monitor satisfaction trends in real time."),
+     "Visualise KPIs and trends across Gender, Age, Income Level, Region, Spend, and Membership enrollment."),
     (fc2, "fa-bullseye",    "Satisfaction Predictor",
-     "Forecast customer satisfaction using a trained RandomForest model with confidence scores and personalised recommendations."),
+     "Forecast Satisfaction_Score (1.0–5.0) and satisfaction tier using a trained RandomForest model with confidence and recommendations."),
     (fc3, "fa-layer-group", "Customer Segmentation",
-     "Discover behavioral personas — High-Value Loyalists, Premium Explorers, Budget Shoppers, Occasional Buyers — through KMeans clustering."),
+     "Discover behavioral personas through KMeans clustering based on demographics, spending habits, and membership."),
     (fc4, "fa-lightbulb",   "Business Insights",
-     "Access data-driven recommendations and analytics. Surface growth opportunities, loyalty impact, and regional performance automatically."),
+     "Access automated recommendations surfacing membership retention drivers, income tier opportunities, and regional dynamics."),
 ]
 for col, icon, title, desc in features:
     with col:
@@ -105,30 +104,30 @@ st.divider()
 st.markdown("""
 <div class="section-header">
     <div class="section-accent"></div>
-    <h2>Dataset Snapshot &amp; Reference</h2>
+    <h2>Dataset Snapshot &amp; Schema</h2>
 </div>
 """, unsafe_allow_html=True)
 
 if models_ready and df is not None:
     d1, d2, d3 = st.columns(3, gap="small")
 
-    loyalty_yes  = int((df["Loyalty_Member"] == "Yes").sum())
-    loyalty_no   = int((df["Loyalty_Member"] == "No").sum())
-    sat_high     = int((df["Satisfaction_Score"] > 3.5).sum())
-    sat_mod      = int(((df["Satisfaction_Score"] > 2.0) & (df["Satisfaction_Score"] <= 3.5)).sum())
-    sat_low      = int((df["Satisfaction_Score"] <= 2.0).sum())
+    mem_yes  = int((df["Membership"] == "Yes").sum())
+    mem_no   = int((df["Membership"] == "No").sum())
+    sat_high = int((df["Satisfaction_Score"] > 3.5).sum())
+    sat_mod  = int(((df["Satisfaction_Score"] > 2.0) & (df["Satisfaction_Score"] <= 3.5)).sum())
+    sat_low  = int((df["Satisfaction_Score"] <= 2.0).sum())
 
     with d1:
-        st.metric("Loyalty Members", f"{loyalty_yes:,} Yes / {loyalty_no:,} No",
-                  f"{loyalty_yes / len(df) * 100:.1f}% loyalty rate")
+        st.metric("Membership Enrollment", f"{mem_yes:,} Members / {mem_no:,} Non-Members",
+                  f"{mem_yes / len(df) * 100:.1f}% membership rate")
     with d2:
         st.metric("Satisfaction Breakdown", "3 Tiers",
                   f"High {sat_high:,} · Moderate {sat_mod:,} · Low {sat_low:,}")
     with d3:
-        st.metric("Average Customer Age", f"{df['Age'].mean():.1f} years",
-                  f"Range: {df['Age'].min()}–{df['Age'].max()}")
+        st.metric("Customer Age Profile", f"{df['Age'].mean():.1f} years avg",
+                  f"Range: {df['Age'].min()}–{df['Age'].max()} years")
 
-    # Dataset attribution card
+    # Dataset schema card
     st.markdown("""
     <div style="
         margin-top: 1.2rem;
@@ -148,12 +147,11 @@ if models_ready and df is not None:
             </div>
             <div>
                 <div style="color: #FFFFFF; font-size: 1rem; font-weight: 700; letter-spacing: -0.01em;">
-                    Synthetic Consumer Behaviour Dataset — 10,000 Records
+                    Target Dataset: 10,000 Records &middot; 7 Features
                 </div>
                 <div style="color: #94A3B8; font-size: 0.82rem; margin-top: 0.25rem;">
-                    Generated for research &amp; educational purposes &middot;
-                    Covers <strong style="color:#CBD5E1;">Age, Gender, Income Level, Region, Purchase Category,
-                    Avg Spend, Payment Mode, Loyalty Membership</strong>, and Satisfaction Score.
+                    Features: <strong style="color:#CBD5E1;">Gender, Age, Income_Level, Region, Avg_Spend, Membership</strong>
+                    &middot; Target: <strong style="color:#34D399;">Satisfaction_Score</strong>
                 </div>
             </div>
         </div>
@@ -168,9 +166,9 @@ if models_ready and df is not None:
                 padding: 0.65rem 1.25rem;
                 box-shadow: 0 4px 14px rgba(99,102,241,0.4);
             ">
-                <i class="fa-solid fa-database" style="color:#FFFFFF; font-size:0.75rem;"></i>
+                <i class="fa-solid fa-check" style="color:#FFFFFF; font-size:0.75rem;"></i>
                 <span style="color:#FFFFFF; font-weight:700; font-size:0.85rem; letter-spacing:0.01em;">
-                    10,000 Customer Records
+                    Active Schema
                 </span>
             </span>
         </div>
@@ -189,10 +187,10 @@ st.markdown("""
 
 t1, t2, t3, t4 = st.columns(4, gap="small")
 stack = [
-    (t1, "fa-desktop",    "Frontend",    ["Streamlit 1.53+", "Plotly Charts", "Custom Design System"]),
-    (t2, "fa-gear",       "Backend",     ["Python 3.9+", "Pandas &amp; NumPy", "Joblib Persistence"]),
-    (t3, "fa-robot",      "ML / AI",     ["scikit-learn", "RandomForest Classifier", "KMeans Clustering"]),
-    (t4, "fa-cloud",      "Deployment",  ["Streamlit Cloud Ready", "Production Grade", "Auto Model Training"]),
+    (t1, "fa-desktop",    "Frontend",    ["Streamlit 1.53+", "Plotly Visualizations", "Custom Dark Theme"]),
+    (t2, "fa-gear",       "Backend",     ["Python 3.9+", "Pandas & NumPy", "Joblib Model Persistence"]),
+    (t3, "fa-robot",      "ML / AI",     ["scikit-learn", "RandomForest (Score & Class)", "KMeans Clustering"]),
+    (t4, "fa-cloud",      "Deployment",  ["Streamlit Cloud", "Production Ready", "10,000 Records"]),
 ]
 for col, icon, title, items in stack:
     rows = "".join(f'<div style="color:#4B5A72;font-size:0.78rem;padding:0.18rem 0;display:flex;align-items:center;gap:0.4rem;"><i class="fa-solid fa-check" style="font-size:0.6rem;color:#6366F1;"></i>{i}</div>' for i in items)
@@ -217,7 +215,7 @@ st.markdown("""
         Customer Behavior Analytics Platform
     </div>
     <div style="color:#64748B;font-size:0.8rem;line-height:1.6;">
-        ML-powered analytics &middot; RandomForest &middot; KMeans &middot; 10,000 Consumer Records
+        ML-powered analytics &middot; Predicting Satisfaction_Score &middot; 10,000 Records
     </div>
     <div style="margin-top:0.8rem;display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap;">
         <span class="badge badge-indigo"><i class="fa-solid fa-robot"></i> AI Powered</span>
