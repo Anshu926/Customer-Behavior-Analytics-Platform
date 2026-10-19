@@ -14,18 +14,29 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # ============================================================================
-# CONSTANTS & FEATURE MAPPINGS
+# CONSTANTS & FEATURE MAPPINGS  (10k Consumer Behaviour Dataset)
 # ============================================================================
 DATA_FILE = "clean_customer_data.csv"
 PREDICTOR_MODEL = "predictor.pkl"
 CLUSTER_MODEL = "cluster.pkl"
 SCALER_MODEL = "scaler.pkl"
 
-MEMBERSHIP_MAPPING = {"Bronze": 1, "Silver": 2, "Gold": 3}
-MEMBERSHIP_REVERSE = {1: "Bronze", 2: "Silver", 3: "Gold"}
-GENDER_MAPPING = {"Female": 0, "Male": 1}
-GENDER_REVERSE = {0: "Female", 1: "Male"}
-SATISFACTION_MAPPING = {0: "Unsatisfied", 1: "Neutral", 2: "Satisfied"}
+GENDER_MAPPING    = {"F": 0, "M": 1, "Other": 2}
+GENDER_REVERSE    = {0: "F", 1: "M", 2: "Other"}
+INCOME_MAPPING    = {"Low": 0, "Medium": 1, "High": 2}
+INCOME_REVERSE    = {0: "Low", 1: "Medium", 2: "High"}
+REGION_MAPPING    = {"Rural": 0, "Semi-Urban": 1, "Urban": 2}
+REGION_REVERSE    = {0: "Rural", 1: "Semi-Urban", 2: "Urban"}
+CATEGORY_MAPPING  = {"Apparel": 0, "Electronics": 1, "Groceries": 2,
+                     "Health & Beauty": 3, "Home & Kitchen": 4, "Sports & Fitness": 5}
+CATEGORY_REVERSE  = {v: k for k, v in CATEGORY_MAPPING.items()}
+PAYMENT_MAPPING   = {"Cash": 0, "Credit Card": 1, "Debit Card": 2, "UPI": 3, "Wallet": 4}
+PAYMENT_REVERSE   = {v: k for k, v in PAYMENT_MAPPING.items()}
+LOYALTY_MAPPING   = {"No": 0, "Yes": 1}
+SATISFACTION_MAPPING = {0: "Low Satisfaction", 1: "Moderate Satisfaction", 2: "High Satisfaction"}
+PRED_FEATURE_COLS = ["Age", "Gender_Enc", "Income_Enc", "Region_Enc",
+                     "Category_Enc", "Avg_Spend", "Payment_Enc", "Loyalty_Enc"]
+SEG_FEATURE_COLS  = ["Age", "Income_Enc", "Avg_Spend", "Category_Enc", "Loyalty_Enc"]
 
 # ============================================================================
 # FONT AWESOME CDN & GLOBAL DESIGN SYSTEM
@@ -514,8 +525,6 @@ def get_chart_layout(height=400, show_legend=True, title="", margin=None):
 def load_data():
     if os.path.exists(DATA_FILE):
         df = pd.read_csv(DATA_FILE)
-        if "Satisfaction Level" in df.columns:
-            df["Satisfaction Level"] = df["Satisfaction Level"].fillna(1).astype(int)
         return df
     raise FileNotFoundError(f"{DATA_FILE} not found.")
 
@@ -523,10 +532,11 @@ def load_data():
 def get_data_stats(df):
     return {
         "total_customers": len(df),
-        "avg_spend":       df["Total Spend"].mean(),
-        "avg_rating":      df["Average Rating"].mean(),
+        "avg_spend":       df["Avg_Spend"].mean(),
+        "avg_score":       df["Satisfaction_Score"].mean(),
         "avg_age":         df["Age"].mean(),
-        "total_revenue":   df["Total Spend"].sum(),
+        "total_revenue":   df["Avg_Spend"].sum(),
+        "loyalty_pct":     (df["Loyalty_Member"] == "Yes").mean() * 100,
     }
 
 
@@ -534,30 +544,25 @@ def get_data_stats(df):
 # MODEL TRAINING & LOADING
 # ============================================================================
 def train_satisfaction_model(df):
-    feature_cols = ["Gender","Age","Membership Type","Total Spend","Items Purchased",
-                    "Average Rating","Discount Applied","Days Since Last Purchase","City Tier"]
-    X = df[feature_cols].copy().dropna()
-    y = df["Satisfaction Level"].astype(int)[X.index]
-    model = RandomForestClassifier(n_estimators=100, max_depth=10, min_samples_split=5,
+    X = df[PRED_FEATURE_COLS].copy()
+    y = df["Satisfaction_Class"].astype(int)
+    model = RandomForestClassifier(n_estimators=150, max_depth=12, min_samples_split=4,
                                    min_samples_leaf=2, random_state=42, n_jobs=-1)
     model.fit(X, y)
-    joblib.dump(model, PREDICTOR_MODEL)
+    try: joblib.dump(model, PREDICTOR_MODEL)
+    except Exception: pass
     return model
 
 
 def load_satisfaction_model(df):
     if os.path.exists(PREDICTOR_MODEL):
-        try:
-            return joblib.load(PREDICTOR_MODEL)
-        except Exception:
-            pass
+        try: return joblib.load(PREDICTOR_MODEL)
+        except Exception: pass
     return train_satisfaction_model(df)
 
 
 def train_segmentation_model(df):
-    feature_cols = ["Age","Membership Type","Total Spend","Items Purchased",
-                    "Average Rating","Days Since Last Purchase"]
-    X = df[feature_cols].copy().dropna()
+    X = df[SEG_FEATURE_COLS].copy()
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
     kmeans = KMeans(n_clusters=4, random_state=42, n_init=10)
@@ -565,22 +570,19 @@ def train_segmentation_model(df):
     try:
         joblib.dump(kmeans, CLUSTER_MODEL)
         joblib.dump(scaler, SCALER_MODEL)
-    except Exception:
-        pass
+    except Exception: pass
     return kmeans, scaler
 
 
 def load_segmentation_model(df):
     if os.path.exists(CLUSTER_MODEL) and os.path.exists(SCALER_MODEL):
-        try:
-            return joblib.load(CLUSTER_MODEL), joblib.load(SCALER_MODEL)
-        except Exception:
-            pass
+        try: return joblib.load(CLUSTER_MODEL), joblib.load(SCALER_MODEL)
+        except Exception: pass
     return train_segmentation_model(df)
 
 
 def get_cluster_labels():
-    return {0: "Premium Customers", 1: "Budget Customers", 2: "Frequent Buyers", 3: "Low Engagement Users"}
+    return {0: "High-Value Loyalists", 1: "Budget Shoppers", 2: "Premium Explorers", 3: "Occasional Buyers"}
 
 
 # ============================================================================
@@ -588,15 +590,14 @@ def get_cluster_labels():
 # ============================================================================
 def prepare_input_for_prediction(user_input):
     return pd.DataFrame([{
-        "Gender": GENDER_MAPPING[user_input["gender"]],
-        "Age": user_input["age"],
-        "Membership Type": MEMBERSHIP_MAPPING[user_input["membership"]],
-        "Total Spend": user_input["total_spend"],
-        "Items Purchased": user_input["items_purchased"],
-        "Average Rating": user_input["avg_rating"],
-        "Discount Applied": 1 if user_input["discount"] else 0,
-        "Days Since Last Purchase": user_input["days_since_purchase"],
-        "City Tier": user_input["city_tier"],
+        "Age":          user_input["age"],
+        "Gender_Enc":   GENDER_MAPPING[user_input["gender"]],
+        "Income_Enc":   INCOME_MAPPING[user_input["income"]],
+        "Region_Enc":   REGION_MAPPING[user_input["region"]],
+        "Category_Enc": CATEGORY_MAPPING[user_input["category"]],
+        "Avg_Spend":    user_input["avg_spend"],
+        "Payment_Enc":  PAYMENT_MAPPING[user_input["payment"]],
+        "Loyalty_Enc":  LOYALTY_MAPPING[user_input["loyalty"]],
     }])
 
 
@@ -605,18 +606,18 @@ def predict_satisfaction(model, input_df):
     probas     = model.predict_proba(input_df)[0]
     return {
         "prediction": SATISFACTION_MAPPING[prediction],
-        "confidence": max(probas)*100,
-        "class": prediction,
-        "probas": probas
+        "confidence": max(probas) * 100,
+        "class":      prediction,
+        "probas":     probas,
     }
 
 
 def get_satisfaction_recommendation(result):
     if result["class"] == 2:
-        return "Keep engagement high. Focus on retention and upsell opportunities."
+        return "Customer is highly satisfied. Focus on loyalty rewards and upsell premium products."
     elif result["class"] == 1:
-        return "Work on improving service quality and personalisation."
-    return "Immediate action needed. Reach out with special offers and priority support."
+        return "Moderate satisfaction. Personalise offers and improve post-purchase experience."
+    return "Low satisfaction alert! Immediate outreach recommended — offer exclusive deals and priority support."
 
 
 # ============================================================================
@@ -624,39 +625,38 @@ def get_satisfaction_recommendation(result):
 # ============================================================================
 def segment_customer(kmeans, scaler, user_input):
     input_df = pd.DataFrame([{
-        "Age": user_input["age"],
-        "Membership Type": user_input["membership"],
-        "Total Spend": user_input["total_spend"],
-        "Items Purchased": user_input["items_purchased"],
-        "Average Rating": user_input["avg_rating"],
-        "Days Since Last Purchase": user_input["days_since_purchase"]
+        "Age":          user_input["age"],
+        "Income_Enc":   INCOME_MAPPING[user_input["income"]],
+        "Avg_Spend":    user_input["avg_spend"],
+        "Category_Enc": CATEGORY_MAPPING[user_input["category"]],
+        "Loyalty_Enc":  LOYALTY_MAPPING[user_input["loyalty"]],
     }])
     return get_cluster_labels()[kmeans.predict(scaler.transform(input_df))[0]]
 
 
 def get_feature_importance(model):
-    feature_cols = ["Gender","Age","Membership Type","Total Spend","Items Purchased",
-                    "Average Rating","Discount Applied","Days Since Last Purchase","City Tier"]
     return pd.DataFrame({
-        "Feature": feature_cols,
+        "Feature": PRED_FEATURE_COLS,
         "Importance": model.feature_importances_
     }).sort_values("Importance", ascending=False)
 
 
 def get_business_insights(df):
     insights = {}
-    top = df.groupby("Membership Type")["Total Spend"].mean().idxmax()
-    insights["top_membership_avg"]    = df.groupby("Membership Type")["Total Spend"].mean().max()
-    insights["top_membership"]        = {1:"Bronze",2:"Silver",3:"Gold"}[top]
-    low_eng = df[df["Days Since Last Purchase"] > df["Days Since Last Purchase"].quantile(0.75)]
-    insights["low_engagement_count"]  = len(low_eng)
-    insights["low_engagement_pct"]    = (len(low_eng)/len(df))*100
-    disc = df.groupby("Discount Applied")["Satisfaction Level"].mean()
-    insights["discount_satisfaction"] = disc[1] - disc[0]
-    insights["spend_satisfaction_corr"] = df["Total Spend"].corr(df["Satisfaction Level"])
-    insights["satisfied_count"]   = (df["Satisfaction Level"]==2).sum()
-    insights["unsatisfied_count"] = (df["Satisfaction Level"]==0).sum()
-    insights["neutral_count"]     = (df["Satisfaction Level"]==1).sum()
+    top_cat = df.groupby("Purchase_Category")["Avg_Spend"].mean().idxmax()
+    insights["top_category"]       = top_cat
+    insights["top_category_spend"] = df.groupby("Purchase_Category")["Avg_Spend"].mean().max()
+    insights["loyalty_count"]      = (df["Loyalty_Member"] == "Yes").sum()
+    insights["loyalty_pct"]        = (df["Loyalty_Member"] == "Yes").mean() * 100
+    insights["high_sat_count"]     = (df["Satisfaction_Class"] == 2).sum()
+    insights["low_sat_count"]      = (df["Satisfaction_Class"] == 0).sum()
+    insights["mod_sat_count"]      = (df["Satisfaction_Class"] == 1).sum()
+    insights["spend_sat_corr"]     = df["Avg_Spend"].corr(df["Satisfaction_Score"])
+    top_region = df.groupby("Region")["Avg_Spend"].mean().idxmax()
+    insights["top_region"]         = top_region
+    insights["top_region_spend"]   = df.groupby("Region")["Avg_Spend"].mean().max()
+    low_sat = df[df["Satisfaction_Class"] == 0]
+    insights["low_sat_pct"]        = len(low_sat) / len(df) * 100
     return insights
 
 

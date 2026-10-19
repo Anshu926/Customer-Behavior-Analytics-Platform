@@ -1,5 +1,5 @@
 """
-Customer Segmentation — KMeans Clustering Analysis
+Customer Segmentation — 10k Consumer Behaviour Dataset
 """
 
 import streamlit as st
@@ -8,20 +8,25 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 from utils import (
-    load_data, load_segmentation_model, get_cluster_labels,
-    render_sidebar, get_chart_layout, FA_CDN,
-    MEMBERSHIP_REVERSE,
+    load_data, load_segmentation_model, render_sidebar,
+    get_chart_layout, segment_customer, get_cluster_labels,
+    INCOME_MAPPING, CATEGORY_MAPPING, LOYALTY_MAPPING, FA_CDN,
+    SEG_FEATURE_COLS
 )
 
 st.set_page_config(page_title="Customer Segmentation", page_icon="🔵", layout="wide", initial_sidebar_state="expanded")
 render_sidebar("segmentation")
 
-@st.cache_data
-def get_cached_data():
-    return load_data()
+@st.cache_resource
+def get_models():
+    df = load_data()
+    km, sc = load_segmentation_model(df)
+    return km, sc, df
 
-df = get_cached_data()
-kmeans_model, scaler = load_segmentation_model(df)
+kmeans, scaler, df = get_models()
+
+CLUSTER_COLORS = ["#6366F1", "#10B981", "#F59E0B", "#EF4444"]
+CLUSTER_LABELS = get_cluster_labels()
 
 # ── Hero ──────────────────────────────────────────────────────────────────────
 st.markdown(f"""
@@ -29,254 +34,146 @@ st.markdown(f"""
 <div class="hero-banner" style="padding:1.6rem 2rem;">
     <div class="hero-tag"><i class="fa-solid fa-layer-group"></i> KMeans Clustering</div>
     <h1>Customer Segmentation</h1>
-    <p class="hero-sub">Discover behavioral personas through intelligent clustering — understand spending patterns and tailor strategy to each segment.</p>
+    <p class="hero-sub">Discover behavioural personas from 10,000 customer records using KMeans clustering across spending, income, category preference, and loyalty patterns.</p>
 </div>
 """, unsafe_allow_html=True)
-
-# ── Model info cards ──────────────────────────────────────────────────────────
-st.markdown("""
-<div class="section-header">
-    <div class="section-accent"></div>
-    <h2>Segmentation Model</h2>
-</div>
-""", unsafe_allow_html=True)
-
-mi1, mi2, mi3, mi4 = st.columns(4, gap="small")
-info_cards = [
-    (mi1, "fa-circle-nodes",  "Clustering Type",  "K-Means",      "info",     "Unsupervised ML"),
-    (mi2, "fa-object-group",  "Clusters",         "4 Segments",   "info",     "Customer groups"),
-    (mi3, "fa-ruler-combined","Features Used",    "6 Features",   "info",     "Spend, age, items…"),
-    (mi4, "fa-users",         "Total Customers",  f"{len(df):,}", "positive", "Segmented & analysed"),
-]
-for col, icon, label, value, cls, sub in info_cards:
-    with col:
-        st.markdown(f"""
-        <div class="pro-card">
-            <span class="card-fa-icon"><i class="fa-solid {icon}"></i></span>
-            <div class="card-label">{label}</div>
-            <div class="card-value" style="font-size:1.2rem;">{value}</div>
-            <div class="card-delta {cls}">{sub}</div>
-        </div>
-        """, unsafe_allow_html=True)
 
 st.divider()
 
-# ── Assign segments ───────────────────────────────────────────────────────────
-segment_labels = get_cluster_labels()
+# ── Assign clusters to full dataset ──────────────────────────────────────────
+Xs = df[SEG_FEATURE_COLS].copy()
+df = df.copy()
+df["Cluster"] = kmeans.predict(scaler.transform(Xs))
+df["Segment"] = df["Cluster"].map(CLUSTER_LABELS)
 
-@st.cache_data
-def assign_segments(_df, _kmeans, _scaler, _labels):
-    df2 = _df.copy()
-    df2["Segment"] = df2.apply(lambda row: _labels[_kmeans.predict(
-        _scaler.transform([[row["Age"], row["Membership Type"], row["Total Spend"],
-                            row["Items Purchased"], row["Average Rating"],
-                            row["Days Since Last Purchase"]]])
-    )[0]], axis=1)
-    return df2
-
-df = assign_segments(df, kmeans_model, scaler, segment_labels)
-segment_counts = df["Segment"].value_counts()
-
-SEG_COLORS = {
-    "Premium Customers":    "#F59E0B",
-    "Budget Customers":     "#94A3B8",
-    "Frequent Buyers":      "#6366F1",
-    "Low Engagement Users": "#EF4444",
-}
-SEG_FA_ICONS = {
-    "Premium Customers":    "fa-crown",
-    "Budget Customers":     "fa-briefcase",
-    "Frequent Buyers":      "fa-rotate",
-    "Low Engagement Users": "fa-moon",
-}
-
-# ── Segment distribution charts ───────────────────────────────────────────────
+# ── Cluster summary cards ─────────────────────────────────────────────────────
 st.markdown("""
 <div class="section-header">
     <div class="section-accent"></div>
-    <h2>Segment Distribution</h2>
-</div>
-""", unsafe_allow_html=True)
+    <h2>Segment Overview</h2>
+</div>""", unsafe_allow_html=True)
 
-sd1, sd2 = st.columns(2, gap="small")
-
-with sd1:
-    fig_pie = px.pie(
-        values=segment_counts.values,
-        names=segment_counts.index,
-        color=segment_counts.index,
-        color_discrete_map=SEG_COLORS,
-        hole=0.45,
-    )
-    fig_pie.update_traces(
-        textposition="outside", textinfo="percent+label",
-        textfont=dict(size=11, color="#94A3B8"),
-        marker=dict(line=dict(color="#111827", width=2)),
-    )
-    pie_lay = get_chart_layout(height=380, show_legend=True, title="Segment Breakdown")
-    pie_lay["xaxis"] = dict(visible=False)
-    pie_lay["yaxis"] = dict(visible=False)
-    fig_pie.update_layout(**pie_lay)
-    st.plotly_chart(fig_pie, use_container_width=True)
-
-with sd2:
-    seg_df = pd.DataFrame({
-        "Segment": segment_counts.index,
-        "Count":   segment_counts.values,
-    })
-    fig_bar = px.bar(
-        seg_df, x="Segment", y="Count",
-        color="Segment", color_discrete_map=SEG_COLORS,
-        text=seg_df["Count"],
-    )
-    fig_bar.update_traces(textposition="outside", marker=dict(line=dict(width=0)), width=0.5)
-    fig_bar.update_layout(**get_chart_layout(height=380, show_legend=False, title="Customer Count per Segment"))
-    st.plotly_chart(fig_bar, use_container_width=True)
-
-st.divider()
-
-# ── Segment profiles ──────────────────────────────────────────────────────────
-st.markdown("""
-<div class="section-header">
-    <div class="section-accent"></div>
-    <h2>Segment Profiles</h2>
-</div>
-""", unsafe_allow_html=True)
-
-profiles = {}
-for seg in segment_labels.values():
-    seg_df = df[df["Segment"] == seg]
-    profiles[seg] = {
-        "size":       len(seg_df),
-        "avg_spend":  seg_df["Total Spend"].mean(),
-        "avg_items":  seg_df["Items Purchased"].mean(),
-        "avg_rating": seg_df["Average Rating"].mean(),
-        "membership": seg_df["Membership Type"].map(MEMBERSHIP_REVERSE).mode()[0] if len(seg_df) > 0 else "N/A",
-    }
-
-segs = list(segment_labels.values())
-sp1, sp2 = st.columns(2, gap="small")
-
-for i, seg_name in enumerate(segs):
-    col   = sp1 if i % 2 == 0 else sp2
-    info  = profiles[seg_name]
-    color = SEG_COLORS.get(seg_name, "#94A3B8")
-    icon  = SEG_FA_ICONS.get(seg_name, "fa-circle")
-    pct   = info["size"] / len(df) * 100
-
-    with col:
+cols = st.columns(4, gap="small")
+for i, (cid, label) in enumerate(CLUSTER_LABELS.items()):
+    seg_df  = df[df["Cluster"] == cid]
+    count   = len(seg_df)
+    pct     = count / len(df) * 100
+    avg_spd = seg_df["Avg_Spend"].mean()
+    avg_sat = seg_df["Satisfaction_Score"].mean()
+    loyalty = (seg_df["Loyalty_Member"] == "Yes").mean() * 100
+    clr     = CLUSTER_COLORS[i]
+    with cols[i]:
         st.markdown(f"""
         <div class="seg-card">
             <div class="sc-header">
-                <div class="sc-stripe" style="background:{color};"></div>
-                <div class="sc-icon-wrap" style="background:{color}18;border:1px solid {color}33;">
-                    <i class="fa-solid {icon}" style="color:{color};"></i>
+                <div class="sc-stripe" style="background:{clr};"></div>
+                <div class="sc-icon-wrap" style="background:{clr}22;color:{clr};">
+                    <i class="fa-solid fa-users"></i>
                 </div>
-                <div>
-                    <div class="sc-title">{seg_name}</div>
-                    <span class="badge" style="background:{color}18;color:{color};border:1px solid {color}33;margin-top:3px;display:inline-block;">
-                        {info['size']} customers &middot; {pct:.1f}%
-                    </span>
-                </div>
+                <div class="sc-title">{label}</div>
             </div>
             <div class="sc-stats">
                 <div>
-                    <div class="sc-stat-label"><i class="fa-solid fa-dollar-sign" style="width:12px;"></i> Avg Spend</div>
-                    <div class="sc-stat-value">${info['avg_spend']:.0f}</div>
+                    <div class="sc-stat-label">Customers</div>
+                    <div class="sc-stat-value">{count:,} ({pct:.1f}%)</div>
                 </div>
                 <div>
-                    <div class="sc-stat-label"><i class="fa-solid fa-box" style="width:12px;"></i> Avg Items</div>
-                    <div class="sc-stat-value">{info['avg_items']:.1f}</div>
+                    <div class="sc-stat-label">Avg Spend</div>
+                    <div class="sc-stat-value">${avg_spd:.0f}</div>
                 </div>
                 <div>
-                    <div class="sc-stat-label"><i class="fa-solid fa-star" style="width:12px;"></i> Avg Rating</div>
-                    <div class="sc-stat-value">{info['avg_rating']:.2f} / 5</div>
+                    <div class="sc-stat-label">Avg Satisfaction</div>
+                    <div class="sc-stat-value">{avg_sat:.2f} / 5</div>
                 </div>
                 <div>
-                    <div class="sc-stat-label"><i class="fa-solid fa-id-badge" style="width:12px;"></i> Membership</div>
-                    <div class="sc-stat-value">{info['membership']}</div>
+                    <div class="sc-stat-label">Loyalty Rate</div>
+                    <div class="sc-stat-value">{loyalty:.1f}%</div>
                 </div>
             </div>
-        </div>
-        """, unsafe_allow_html=True)
+        </div>""", unsafe_allow_html=True)
 
 st.divider()
 
-# ── Radar chart ───────────────────────────────────────────────────────────────
+# ── Cluster scatter ───────────────────────────────────────────────────────────
 st.markdown("""
 <div class="section-header">
     <div class="section-accent"></div>
-    <h2>Segment Comparison — Radar</h2>
-</div>
-""", unsafe_allow_html=True)
+    <h2>Cluster Visualisation</h2>
+</div>""", unsafe_allow_html=True)
 
-radar_features = ["Total Spend", "Items Purchased", "Average Rating", "Days Since Last Purchase", "Age"]
-radar_data     = df.groupby("Segment")[radar_features].mean()
-fig_radar      = go.Figure()
+cv1, cv2 = st.columns(2, gap="small")
+with cv1:
+    fig_sc = px.scatter(df.sample(min(3000, len(df)), random_state=42),
+                        x="Avg_Spend", y="Satisfaction_Score",
+                        color="Segment", color_discrete_sequence=CLUSTER_COLORS,
+                        opacity=0.6, hover_data=["Age", "Income_Level", "Region"],
+                        labels={"Avg_Spend": "Avg Spend ($)", "Satisfaction_Score": "Satisfaction Score"})
+    fig_sc.update_layout(**get_chart_layout(height=420, title="Spend vs Satisfaction by Segment"))
+    st.plotly_chart(fig_sc, use_container_width=True)
 
-for seg in radar_data.index:
-    vals = radar_data.loc[seg].tolist()
-    maxv = radar_data.max()
-    norm = [v / mx if mx else 0 for v, mx in zip(vals, maxv.tolist())]
-    norm.append(norm[0])
-    color = SEG_COLORS.get(seg, "#94A3B8")
-    # Build rgba fill
-    r,g,b = int(color[1:3],16), int(color[3:5],16), int(color[5:7],16)
-    fig_radar.add_trace(go.Scatterpolar(
-        r=norm, theta=radar_features + [radar_features[0]],
-        fill="toself", name=seg,
-        line=dict(color=color, width=2),
-        fillcolor=f"rgba({r},{g},{b},0.07)",
-    ))
-
-radar_lay = get_chart_layout(height=440, show_legend=True, title="Normalised Segment Profiles")
-radar_lay["polar"] = dict(
-    bgcolor="#111827",
-    radialaxis=dict(visible=True, range=[0,1], gridcolor="#1F2D45", tickfont=dict(size=9,color="#64748B")),
-    angularaxis=dict(gridcolor="#1F2D45", tickfont=dict(size=10,color="#94A3B8")),
-)
-fig_radar.update_layout(**radar_lay)
-st.plotly_chart(fig_radar, use_container_width=True)
+with cv2:
+    fig_sc2 = px.scatter(df.sample(min(3000, len(df)), random_state=1),
+                         x="Age", y="Avg_Spend",
+                         color="Segment", color_discrete_sequence=CLUSTER_COLORS,
+                         opacity=0.6, hover_data=["Income_Level", "Purchase_Category"],
+                         labels={"Age": "Age (years)", "Avg_Spend": "Avg Spend ($)"})
+    fig_sc2.update_layout(**get_chart_layout(height=420, title="Age vs Spend by Segment"))
+    st.plotly_chart(fig_sc2, use_container_width=True)
 
 st.divider()
 
-# ── Recommended actions ───────────────────────────────────────────────────────
+# ── Category & Region mix per segment ────────────────────────────────────────
 st.markdown("""
 <div class="section-header">
     <div class="section-accent"></div>
-    <h2>Recommended Actions by Segment</h2>
-</div>
-""", unsafe_allow_html=True)
+    <h2>Segment Behaviour Breakdown</h2>
+</div>""", unsafe_allow_html=True)
 
-actions = {
-    "Premium Customers":    {"icon":"fa-crown",    "color":"#F59E0B","items":["VIP treatment with exclusive offers","Dedicated account manager","Early access to new products","Premium support priority"]},
-    "Budget Customers":     {"icon":"fa-briefcase","color":"#94A3B8","items":["Value-focused promotions","Bulk discount programmes","Price comparison guidance","Cost-saving recommendations"]},
-    "Frequent Buyers":      {"icon":"fa-rotate",   "color":"#6366F1","items":["Loyalty rewards programme","Personalised product recommendations","Exclusive member-only events","Referral bonus incentives"]},
-    "Low Engagement Users": {"icon":"fa-moon",     "color":"#EF4444","items":["Targeted re-engagement campaigns","Special comeback offers","Personalised outreach emails","Win-back promotions"]},
-}
+sb1, sb2 = st.columns(2, gap="small")
+with sb1:
+    seg_cat = df.groupby(["Segment", "Purchase_Category"]).size().reset_index(name="Count")
+    fig_scat = px.bar(seg_cat, x="Segment", y="Count", color="Purchase_Category",
+                      barmode="group", color_discrete_sequence=["#6366F1","#10B981","#F59E0B","#EF4444","#8B5CF6","#06B6D4"])
+    fig_scat.update_layout(**get_chart_layout(height=380, show_legend=True, title="Category Preference by Segment"))
+    st.plotly_chart(fig_scat, use_container_width=True)
 
-ac1, ac2 = st.columns(2, gap="small")
-for i, (seg_name, action) in enumerate(actions.items()):
-    col = ac1 if i % 2 == 0 else ac2
-    items_html = "".join(
-        f'<div style="color:#94A3B8;font-size:0.81rem;padding:0.22rem 0;display:flex;align-items:center;gap:0.4rem;">'
-        f'<i class="fa-solid fa-chevron-right" style="font-size:0.55rem;color:{action["color"]};"></i>{item}</div>'
-        for item in action["items"]
-    )
-    with col:
-        st.markdown(f"""
-        <div class="rec-card" style="border-top-color:{action['color']};">
-            <div class="rc-title">
-                <i class="fa-solid {action['icon']}" style="color:{action['color']};margin-right:0.4rem;"></i>
-                {seg_name}
-            </div>
-            {items_html}
-        </div>
-        """, unsafe_allow_html=True)
+with sb2:
+    seg_income = df.groupby(["Segment", "Income_Level"]).size().reset_index(name="Count")
+    fig_sinc = px.bar(seg_income, x="Segment", y="Count", color="Income_Level",
+                      barmode="stack", color_discrete_map={"High":"#10B981","Medium":"#6366F1","Low":"#EF4444"})
+    fig_sinc.update_layout(**get_chart_layout(height=380, show_legend=True, title="Income Mix by Segment"))
+    st.plotly_chart(fig_sinc, use_container_width=True)
 
+st.divider()
+
+# ── Predict segment for a new customer ────────────────────────────────────────
 st.markdown("""
-<div style="text-align:center;padding:1rem 0;color:#2D3B55;font-size:0.75rem;">
-    <i class="fa-solid fa-circle-nodes" style="margin-right:0.3rem;"></i>
-    Segmentation &middot; Powered by scikit-learn KMeans
-</div>
-""", unsafe_allow_html=True)
+<div class="section-header">
+    <div class="section-accent"></div>
+    <h2>Classify a New Customer</h2>
+</div>""", unsafe_allow_html=True)
+
+nc1, nc2 = st.columns(2, gap="medium")
+with nc1:
+    n_age      = st.slider("Age", 18, 69, 30)
+    n_income   = st.selectbox("Income Level", ["Low", "Medium", "High"])
+    n_category = st.selectbox("Purchase Category", list(CATEGORY_MAPPING.keys()))
+with nc2:
+    n_spend    = st.slider("Avg Spend ($)", 10.0, 630.0, 200.0, step=5.0)
+    n_loyalty  = st.selectbox("Loyalty Member", ["No", "Yes"])
+
+if st.button("🔍  Classify Customer Segment", use_container_width=True):
+    seg = segment_customer(kmeans, scaler, {
+        "age": n_age, "income": n_income, "category": n_category,
+        "avg_spend": n_spend, "loyalty": n_loyalty
+    })
+    idx   = list(CLUSTER_LABELS.values()).index(seg)
+    color = CLUSTER_COLORS[idx]
+    st.markdown(f"""
+    <div style="background:{color}18;border:1px solid {color}55;border-radius:12px;
+                padding:1.5rem;text-align:center;margin-top:0.5rem;">
+        <div style="color:#94A3B8;font-size:0.72rem;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;margin-bottom:0.5rem;">
+            Predicted Segment
+        </div>
+        <div style="color:{color};font-size:1.6rem;font-weight:700;">{seg}</div>
+    </div>""", unsafe_allow_html=True)
