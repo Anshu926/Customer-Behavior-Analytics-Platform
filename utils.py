@@ -8,7 +8,9 @@ import pandas as pd
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.cluster import KMeans
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, OrdinalEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
 import joblib
 import warnings
 
@@ -34,7 +36,7 @@ MEMBERSHIP_REVERSE = {0: "No", 1: "Yes"}
 SATISFACTION_MAPPING = {0: "Low Satisfaction", 1: "Moderate Satisfaction", 2: "High Satisfaction"}
 
 PRED_FEATURE_COLS = ["Age", "Gender_Enc", "Income_Enc", "Region_Enc", "Avg_Spend", "Membership_Enc"]
-SEG_FEATURE_COLS  = ["Age", "Gender_Enc", "Income_Enc", "Region_Enc", "Avg_Spend", "Membership_Enc"]
+SEG_FEATURE_COLS  = ["Age", "Avg_Spend", "Income_Level"]
 
 # ============================================================================
 # FONT AWESOME CDN & GLOBAL DESIGN SYSTEM
@@ -252,7 +254,7 @@ div[data-testid="stButton"] > button:hover {
     filter: brightness(1.12) !important;
 }
 
-/* ── Reusable Classes ──────────────────────────────────────────────────────── */
+/* ── Reusable Component Classes ────────────────────────────────────────────── */
 .pro-card {
     background: linear-gradient(135deg, #111827 0%, #1A2234 100%);
     border: 1px solid var(--border-soft);
@@ -321,18 +323,66 @@ div[data-testid="stButton"] > button:hover {
 .rec-card .rc-desc  { color: var(--text-soft); font-size: 0.82rem; line-height: 1.55; margin-bottom: 0.6rem; }
 .rc-meta { display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; }
 
-.seg-card {
-    background: var(--bg-card); border: 1px solid var(--border-soft); border-radius: 14px;
-    padding: 1.3rem 1.5rem; margin-bottom: 1rem; transition: transform 0.2s ease, box-shadow 0.2s ease;
+/* Redesigned Rich Segment Card */
+.seg-card-rich {
+    background: var(--bg-card);
+    border: 1px solid var(--border-soft);
+    border-radius: 16px;
+    padding: 1.4rem 1.5rem;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
 }
-.seg-card:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(0,0,0,0.35); }
-.seg-card .sc-header { display: flex; align-items: center; gap: 0.65rem; margin-bottom: 0.9rem; padding-bottom: 0.7rem; border-bottom: 1px solid var(--border); }
-.seg-card .sc-stripe  { width: 4px; height: 28px; border-radius: 2px; flex-shrink: 0; }
-.seg-card .sc-icon-wrap { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; flex-shrink: 0; }
-.seg-card .sc-title  { color: var(--text-primary); font-size: 0.97rem; font-weight: 600; }
-.seg-card .sc-stats   { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem 1rem; }
-.seg-card .sc-stat-label { color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.1rem; }
-.seg-card .sc-stat-value { color: var(--text-primary); font-size: 0.9rem; font-weight: 600; }
+.seg-card-rich:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.4);
+    border-color: rgba(99,102,241,0.4);
+}
+.seg-card-rich .sc-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.85rem;
+    border-bottom: 1px solid var(--border);
+}
+.seg-card-rich .sc-stripe { width: 4px; height: 32px; border-radius: 2px; flex-shrink: 0; }
+.seg-card-rich .sc-icon-wrap {
+    width: 36px; height: 36px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.95rem; flex-shrink: 0;
+}
+.seg-card-rich .sc-title { color: var(--text-primary); font-size: 1.05rem; font-weight: 700; line-height: 1.2; }
+.seg-card-rich .sc-badge { font-size: 0.62rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 50px; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 0.25rem; display: inline-block; }
+.seg-card-rich .sc-stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.65rem 0.9rem;
+    margin-bottom: 1rem;
+}
+.seg-card-rich .sc-stat-label { color: var(--text-muted); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.15rem; }
+.seg-card-rich .sc-stat-val { color: var(--text-primary); font-size: 0.98rem; font-weight: 700; }
+.seg-card-rich .sc-desc-box {
+    background: rgba(10, 14, 23, 0.6);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.75rem 0.9rem;
+    color: var(--text-soft);
+    font-size: 0.8rem;
+    line-height: 1.5;
+    margin-bottom: 0.85rem;
+}
+.seg-card-rich .sc-rec-box {
+    background: rgba(99,102,241,0.06);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 8px 8px 0;
+    padding: 0.65rem 0.85rem;
+    font-size: 0.78rem;
+    color: #E2E8F0;
+    line-height: 1.45;
+}
 
 .badge { display: inline-block; padding: 0.18rem 0.55rem; border-radius: 50px; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.04em; }
 .badge-green  { background: rgba(16,185,129,0.14);  color: #34D399; border: 1px solid rgba(16,185,129,0.28); }
@@ -384,7 +434,7 @@ def get_data_stats(df):
     }
 
 # ============================================================================
-# MODEL TRAINING & LOADING
+# SATISFACTION PREDICTOR MODEL TRAINING & LOADING
 # ============================================================================
 def train_satisfaction_model(df):
     X = df[PRED_FEATURE_COLS].copy()
@@ -413,31 +463,168 @@ def load_satisfaction_model(df):
         except Exception: pass
     return train_satisfaction_model(df)
 
+# ============================================================================
+# K-MEANS SEGMENTATION PIPELINE (Age, Avg_Spend, Income_Level)
+# ============================================================================
+def build_segmentation_pipeline(n_clusters=4):
+    """
+    Builds a robust, leakage-free Scikit-learn Pipeline:
+    - Age & Avg_Spend: Standardized via StandardScaler
+    - Income_Level: Ordinally encoded (Low=0, Medium=1, High=2) and Standardized
+    - Clustered via KMeans(k=4, random_state=42)
+    Excludes Gender & Membership to avoid artificial identity clustering.
+    Excludes Satisfaction_Score to prevent target leakage and allow independent comparison.
+    """
+    preprocessor = ColumnTransformer(
+        transformers=[
+            ('num', StandardScaler(), ['Age', 'Avg_Spend']),
+            ('ord', Pipeline([
+                ('ordinal', OrdinalEncoder(categories=[['Low', 'Medium', 'High']])),
+                ('scaler', StandardScaler())
+            ]), ['Income_Level'])
+        ]
+    )
+    return Pipeline([
+        ('preprocessor', preprocessor),
+        ('cluster', KMeans(n_clusters=n_clusters, random_state=42, n_init=10))
+    ])
+
 def train_segmentation_model(df):
-    X = df[SEG_FEATURE_COLS].copy()
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X)
-    kmeans = KMeans(n_clusters=4, random_state=42, n_init=10)
-    kmeans.fit(X_scaled)
+    pipeline = build_segmentation_pipeline(n_clusters=4)
+    pipeline.fit(df[SEG_FEATURE_COLS])
     try:
-        joblib.dump(kmeans, CLUSTER_MODEL)
-        joblib.dump(scaler, SCALER_MODEL)
+        joblib.dump(pipeline, CLUSTER_MODEL)
+        joblib.dump(pipeline.named_steps['preprocessor'], SCALER_MODEL)
     except Exception: pass
-    return kmeans, scaler
+    return pipeline, pipeline.named_steps['preprocessor']
 
 def load_segmentation_model(df):
     if os.path.exists(CLUSTER_MODEL) and os.path.exists(SCALER_MODEL):
-        try: return joblib.load(CLUSTER_MODEL), joblib.load(SCALER_MODEL)
+        try:
+            pipeline = joblib.load(CLUSTER_MODEL)
+            if hasattr(pipeline, "named_steps") and "preprocessor" in getattr(pipeline, "named_steps", {}):
+                return pipeline, pipeline.named_steps['preprocessor']
         except Exception: pass
     return train_segmentation_model(df)
 
-def get_cluster_labels():
-    return {
-        0: "Male Loyalty Members",
-        1: "Female Non-Members",
-        2: "Female Loyalty Members",
-        3: "Male Non-Members"
+# ============================================================================
+# DYNAMIC CLUSTER PERSONA PROFILING
+# ============================================================================
+def get_dynamic_cluster_profiles(df, cluster_col="Cluster"):
+    """
+    Dynamically discovers and profiles clusters based on actual data statistics:
+    - Evaluates spend, age, income distributions, satisfaction, and membership rates.
+    - Dynamically generates interpretable persona names, badges, colors, and business recommendations.
+    - Does NOT hardcode static cluster IDs so results are consistent and data-driven.
+    """
+    overall_spend = df["Avg_Spend"].mean()
+    overall_age   = df["Age"].mean()
+
+    cluster_stats = []
+    for c in sorted(df[cluster_col].unique()):
+        sub = df[df[cluster_col] == c]
+        cnt = len(sub)
+        pct = (cnt / len(df)) * 100
+        avg_spd = sub["Avg_Spend"].mean()
+        avg_age = sub["Age"].mean()
+        avg_sat = sub["Satisfaction_Score"].mean()
+        mem_pct = (sub["Membership"] == "Yes").mean() * 100
+        inc_dist = sub["Income_Level"].value_counts(normalize=True).to_dict()
+        reg_dist = sub["Region"].value_counts(normalize=True).to_dict()
+
+        cluster_stats.append({
+            "cluster_id": c,
+            "count": cnt,
+            "pct": pct,
+            "avg_spend": avg_spd,
+            "avg_age": avg_age,
+            "avg_sat": avg_sat,
+            "mem_pct": mem_pct,
+            "inc_dist": inc_dist,
+            "reg_dist": reg_dist,
+        })
+
+    assigned = {}
+    remaining = cluster_stats.copy()
+
+    # 1. Highest spend cluster -> High-Value Spenders
+    highest_spend = max(remaining, key=lambda x: x["avg_spend"])
+    h_spd = round(highest_spend["avg_spend"], 1)
+    assigned[highest_spend["cluster_id"]] = {
+        "name": "High-Value Spenders",
+        "badge": "Revenue Driver",
+        "color": "#10B981",
+        "icon": "fa-crown",
+        "desc": f"Top spenders averaging ${h_spd:.1f} per transaction (significantly above the overall average of ${overall_spend:.1f}).",
+        "rec": "Prioritize VIP concierge perks, premium loyalty tiers, and early access to high-ticket offerings."
     }
+    remaining = [x for x in remaining if x["cluster_id"] != highest_spend["cluster_id"]]
+
+    # 2. Highest proportion of High Income -> Affluent High-Income
+    high_inc = max(remaining, key=lambda x: x["inc_dist"].get("High", 0))
+    h_inc_pct = round(high_inc["inc_dist"].get("High", 0) * 100)
+    assigned[high_inc["cluster_id"]] = {
+        "name": "Affluent High-Income",
+        "badge": "High Purchasing Power",
+        "color": "#6366F1",
+        "icon": "fa-wallet",
+        "desc": f"{h_inc_pct}% high-income customers with strong purchasing capacity and dependable engagement.",
+        "rec": "Target with premium subscription tiers, luxury partnerships, and personalized service guarantees."
+    }
+    remaining = [x for x in remaining if x["cluster_id"] != high_inc["cluster_id"]]
+
+    # 3. Among remaining, split by age: Younger vs Mature
+    younger = min(remaining, key=lambda x: x["avg_age"])
+    older   = max(remaining, key=lambda x: x["avg_age"])
+
+    y_age = round(younger["avg_age"], 1)
+    y_spd = round(younger["avg_spend"], 1)
+    assigned[younger["cluster_id"]] = {
+        "name": "Young Emerging Shoppers",
+        "badge": "Growth Cohort",
+        "color": "#06B6D4",
+        "icon": "fa-bolt",
+        "desc": f"Younger cohort (avg age {y_age:.1f}) with budget-to-moderate spending (${y_spd:.1f}) and strong digital potential.",
+        "rec": "Engage via mobile-first flash promotions, flexible payment plans, and gamified loyalty rewards."
+    }
+
+    o_age = round(older["avg_age"], 1)
+    o_spd = round(older["avg_spend"], 1)
+    assigned[older["cluster_id"]] = {
+        "name": "Mature Steady Buyers",
+        "badge": "Stable Mainstay",
+        "color": "#F59E0B",
+        "icon": "fa-user-check",
+        "desc": f"Mature cohort (avg age {o_age:.1f}) with consistent spending (${o_spd:.1f}) and dependable membership retention.",
+        "rec": "Retain with straightforward value messaging, dependable telephone support, and reliable reorder incentives."
+    }
+
+    return assigned, cluster_stats
+
+def get_cluster_labels(df=None):
+    """Fallback or dynamic lookup for cluster labels."""
+    if df is not None and "Cluster" in df.columns:
+        assigned, _ = get_dynamic_cluster_profiles(df)
+        return {cid: info["name"] for cid, info in assigned.items()}
+    return {
+        0: "Affluent High-Income",
+        1: "Mature Steady Buyers",
+        2: "Young Emerging Shoppers",
+        3: "High-Value Spenders"
+    }
+
+def segment_customer(pipeline, user_input):
+    """
+    Transforms a single customer input using the exact fitted pipeline and predicts cluster.
+    Accepts: age (int), income (str: Low/Medium/High), avg_spend (float).
+    """
+    input_df = pd.DataFrame([{
+        "Age":          user_input["age"],
+        "Avg_Spend":    user_input["avg_spend"],
+        "Income_Level": user_input["income"],
+    }])
+    cluster_id = int(pipeline.predict(input_df)[0])
+    return cluster_id
 
 # ============================================================================
 # PREDICTION UTILITIES
@@ -474,20 +661,6 @@ def get_satisfaction_recommendation(result):
     elif result["class"] == 1:
         return "Moderate satisfaction. Recommended action: engage with personalized membership upgrades, targeted discounts, and service surveys."
     return "Low satisfaction alert! Recommended action: proactive retention outreach, dedicated customer support resolution, and compensatory loyalty incentives."
-
-# ============================================================================
-# SEGMENTATION UTILITIES
-# ============================================================================
-def segment_customer(kmeans, scaler, user_input):
-    input_df = pd.DataFrame([{
-        "Age":            user_input["age"],
-        "Gender_Enc":     GENDER_MAPPING[user_input["gender"]],
-        "Income_Enc":     INCOME_MAPPING[user_input["income"]],
-        "Region_Enc":     REGION_MAPPING[user_input["region"]],
-        "Avg_Spend":      user_input["avg_spend"],
-        "Membership_Enc": MEMBERSHIP_MAPPING[user_input["membership"]],
-    }])
-    return get_cluster_labels()[kmeans.predict(scaler.transform(input_df))[0]]
 
 def get_feature_importance(model_bundle):
     clf = model_bundle["classifier"]
@@ -581,28 +754,28 @@ def render_sidebar(active_page: str):
     <div style="padding:0 0.6rem;">
         <div style="background: rgba(17,24,39,0.85); border: 1px solid rgba(99,102,241,0.15); border-radius: 12px; padding: 0.9rem 1rem; box-shadow: 0 4px 20px rgba(0,0,0,0.25);">
             <div style="color:#64748B; font-size:0.65rem; font-weight:700; letter-spacing:0.15em; text-transform:uppercase; margin-bottom:0.65rem; display:flex; align-items:center; gap:0.4rem;">
-                <i class="fa-solid fa-circle-info" style="color:#6366F1;"></i> Dataset Features
+                <i class="fa-solid fa-circle-info" style="color:#6366F1;"></i> Platform Overview
             </div>
 
             <div style="display:flex;justify-content:space-between;align-items:center;padding:0.3rem 0;font-size:0.75rem;border-bottom:1px solid rgba(255,255,255,0.04);">
                 <span style="color:#94A3B8;display:flex;align-items:center;gap:0.45rem;">
-                    <i class="fa-solid fa-database" style="width:14px;color:#6366F1;"></i> Records
+                    <i class="fa-solid fa-database" style="width:14px;color:#6366F1;"></i> Customers
                 </span>
                 <span style="color:#F1F5F9;font-weight:600;">10,000</span>
             </div>
 
             <div style="display:flex;justify-content:space-between;align-items:center;padding:0.3rem 0;font-size:0.75rem;border-bottom:1px solid rgba(255,255,255,0.04);">
                 <span style="color:#94A3B8;display:flex;align-items:center;gap:0.45rem;">
-                    <i class="fa-solid fa-sliders" style="width:14px;color:#6366F1;"></i> Target
+                    <i class="fa-solid fa-layer-group" style="width:14px;color:#6366F1;"></i> Segments
                 </span>
-                <span style="color:#F1F5F9;font-weight:600;">Satisfaction_Score</span>
+                <span style="color:#F1F5F9;font-weight:600;">4 Personas</span>
             </div>
 
             <div style="display:flex;justify-content:space-between;align-items:center;padding:0.3rem 0;font-size:0.75rem;border-bottom:1px solid rgba(255,255,255,0.04);">
                 <span style="color:#94A3B8;display:flex;align-items:center;gap:0.45rem;">
-                    <i class="fa-solid fa-id-card" style="width:14px;color:#6366F1;"></i> Status
+                    <i class="fa-solid fa-robot" style="width:14px;color:#6366F1;"></i> ML Pipeline
                 </span>
-                <span style="color:#F1F5F9;font-weight:600;">Membership</span>
+                <span style="color:#F1F5F9;font-weight:600;">KMeans &middot; RF</span>
             </div>
 
             <div style="display:flex;justify-content:space-between;align-items:center;padding:0.3rem 0;font-size:0.75rem;">
@@ -610,7 +783,7 @@ def render_sidebar(active_page: str):
                     <i class="fa-solid fa-shield-halved" style="width:14px;color:#10B981;"></i> Status
                 </span>
                 <span style="color:#34D399;font-weight:700;display:flex;align-items:center;gap:0.35rem;">
-                    <i class="fa-solid fa-circle-check" style="font-size:0.7rem;"></i> Ready
+                    <i class="fa-solid fa-circle-check" style="font-size:0.7rem;"></i> Active
                 </span>
             </div>
         </div>
@@ -618,7 +791,7 @@ def render_sidebar(active_page: str):
 
     <div style="padding:1.2rem 1rem 0.8rem; text-align:center;">
         <div style="color:#475569;font-size:0.68rem;letter-spacing:0.04em;">
-            v1.0 &middot; scikit-learn &middot; Streamlit
+            v2.0 &middot; Pipeline &middot; Streamlit
         </div>
     </div>"""
 

@@ -84,7 +84,7 @@ features = [
     (fc2, "fa-bullseye",    "Satisfaction Predictor",
      "Forecast Satisfaction_Score (1.0–5.0) and satisfaction tier using a trained RandomForest model with confidence and recommendations."),
     (fc3, "fa-layer-group", "Customer Segmentation",
-     "Discover behavioral personas through KMeans clustering based on demographics, spending habits, and membership."),
+     "Discover behavioral personas through K-Means clustering across Spending, Age, and Income Level — evaluating satisfaction and membership independently."),
     (fc4, "fa-lightbulb",   "Business Insights",
      "Access automated recommendations surfacing membership retention drivers, income tier opportunities, and regional dynamics."),
 ]

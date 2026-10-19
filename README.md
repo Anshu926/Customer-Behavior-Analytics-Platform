@@ -88,13 +88,14 @@ This platform uses 7 core customer attributes designed for behavioral intelligen
 - **Actionable Advice:** Tailored strategic recommendations based on prediction
 
 ### 4. 🔵 Customer Segmentation (`pages/segmentation.py`)
-- **ML Algorithm:** KMeans (k=4) with `StandardScaler`
-- **Segments:**
-  - 🏆 **Male Loyalty Members** — High loyalty enrollment, steady spend
-  - 🛍️ **Female Non-Members** — High conversion potential for membership programs
-  - 💎 **Female Loyalty Members** — Engaged brand champions with high satisfaction
-  - 🛒 **Male Non-Members** — Independent buyers with distinct purchase patterns
-- **Interactive features:** Scatter plots (Spend vs Satisfaction, Age vs Spend) and instant customer profile classification tool
+- **ML Algorithm:** Scikit-learn Pipeline with `ColumnTransformer` (OrdinalEncoder + StandardScaler) and `KMeans(k=4)`
+- **Clustering Features:** `Age`, `Avg_Spend`, `Income_Level` (Excludes `Gender`, `Membership`, and `Satisfaction_Score` to prevent demographic bias and target leakage)
+- **Data-Driven Personas:**
+  - 👑 **High-Value Spenders** (~24.3%) — Top spenders ($315 avg) driving revenue
+  - 💼 **Affluent High-Income** (~19.5%) — 100% High Income tier with strong purchasing capability
+  - ⚡ **Young Emerging Shoppers** (~28.5%) — Younger cohort (avg age ~30) with digital growth potential
+  - 🛡️ **Mature Steady Buyers** (~27.6%) — Mature demographic (avg age ~58) with dependable loyalty retention
+- **Interactive Features:** Spend vs. Age scatter plot, Segment population donut chart, cross-segment metric comparison, and dynamic customer classification tool
 
 ### 5. 💡 Business Insights (`pages/insights.py`)
 - **5 Strategic Insights:**
