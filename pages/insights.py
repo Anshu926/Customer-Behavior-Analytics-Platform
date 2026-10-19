@@ -1,6 +1,5 @@
 """
-Business Insights — Strategic Analytics
-Analyzes: Gender, Age, Income_Level, Region, Avg_Spend, Membership, Satisfaction_Score.
+Business Insights — 10k Consumer Behaviour Dataset
 """
 
 import streamlit as st
@@ -27,7 +26,7 @@ st.markdown(f"""
 <div class="hero-banner" style="padding:1.6rem 2rem;">
     <div class="hero-tag"><i class="fa-solid fa-lightbulb"></i> Data-Driven Intelligence</div>
     <h1>Business Insights &amp; Recommendations</h1>
-    <p class="hero-sub">Automated analytics surfacing growth opportunities, membership impact, and strategic recommendations across 10,000 customer records.</p>
+    <p class="hero-sub">Automated analytics surfacing growth opportunities, retention risks, and strategic recommendations — powered by 10,000 consumer behaviour records.</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -43,7 +42,7 @@ snap = [
     (k1, "fa-face-smile",    "High Satisfaction",  f"{insights['high_sat_count']:,}",  "positive", f"{insights['high_sat_count']/total*100:.1f}% of customers"),
     (k2, "fa-face-meh",      "Moderate",           f"{insights['mod_sat_count']:,}",   "neutral",  f"{insights['mod_sat_count']/total*100:.1f}% of customers"),
     (k3, "fa-face-frown",    "Low Satisfaction",   f"{insights['low_sat_count']:,}",   "neutral",  f"{insights['low_sat_count']/total*100:.1f}% of customers"),
-    (k4, "fa-chart-scatter", "Spend–Sat. Corr.",   f"{insights['spend_sat_corr']:.3f}","info",     "Pearson correlation"),
+    (k4, "fa-chart-scatter", "Spend–Sat. Corr.",   f"{insights['spend_sat_corr']:.3f}","info",     "Pearson coefficient"),
 ]
 for col, icon, label, value, cls, delta in snap:
     with col:
@@ -57,76 +56,75 @@ for col, icon, label, value, cls, delta in snap:
 
 st.divider()
 
-# ── Insight 1: Membership Impact ──────────────────────────────────────────────
+# ── Insight 1: Top Category ───────────────────────────────────────────────────
 st.markdown("""
 <div class="section-header">
     <div class="section-accent"></div>
-    <h2>Insight 1 &middot; Membership Program Value</h2>
+    <h2>Insight 1 &middot; Category Revenue Leaders</h2>
 </div>""", unsafe_allow_html=True)
 
 i1l, i1r = st.columns([1, 2], gap="small")
-mem_spend = df.groupby("Membership")["Avg_Spend"].mean()
-mem_sat   = df.groupby("Membership")["Satisfaction_Score"].mean()
-
 with i1l:
     st.markdown(f"""
     <div class="insight-panel">
-        <div class="ip-num">01 — MEMBERSHIP IMPACT</div>
-        <h4>💳 {insights['membership_pct']:.1f}% Enrolled in Membership</h4>
+        <div class="ip-num">01 — TOP CATEGORY</div>
+        <h4>🏆 {insights['top_category']}</h4>
         <p style="color:#94A3B8;font-size:0.84rem;line-height:1.6;">
-            Enrolled members spend an average of <strong style="color:#34D399;">${mem_spend.get('Yes',0):.2f}</strong>
-            vs <strong style="color:#FCA5A5;">${mem_spend.get('No',0):.2f}</strong> for non-members.
-            Average satisfaction score: <strong style="color:#A5B4FC;">{mem_sat.get('Yes',0):.2f}</strong> vs {mem_sat.get('No',0):.2f}.
+            This is the highest-spending category with an average spend of
+            <strong style="color:#A5B4FC;">${insights['top_category_spend']:.2f}</strong> per customer.
+            Prioritise inventory and marketing efforts here.
         </p>
-        <div class="badge badge-green" style="font-size:0.7rem;">High Retention Driver</div>
+        <div class="badge badge-indigo" style="font-size:0.7rem;">Revenue Leader</div>
     </div>""", unsafe_allow_html=True)
 
 with i1r:
-    mem_df = pd.DataFrame({
-        "Status": ["Non-Member", "Member"],
-        "Avg Spend": [mem_spend.get("No", 0), mem_spend.get("Yes", 0)],
-        "Avg Satisfaction": [mem_sat.get("No", 0), mem_sat.get("Yes", 0)]
-    })
-    fig1 = px.bar(mem_df, x="Status", y="Avg Spend",
-                  color="Status", color_discrete_map={"Non-Member": "#EF4444", "Member": "#10B981"},
-                  text=mem_df["Avg Spend"].apply(lambda v: f"${v:.2f}"))
-    fig1.update_traces(textposition="outside", width=0.35)
-    fig1.update_layout(**get_chart_layout(height=280, show_legend=False, title="Spend: Members vs Non-Members"))
-    st.plotly_chart(fig1, use_container_width=True)
+    cat_spend = df.groupby("Purchase_Category")["Avg_Spend"].mean().sort_values(ascending=False)
+    fig = px.bar(x=cat_spend.index, y=cat_spend.values, color=cat_spend.index,
+                 color_discrete_sequence=["#6366F1","#10B981","#F59E0B","#EF4444","#8B5CF6","#06B6D4"],
+                 text=[f"${v:.0f}" for v in cat_spend.values],
+                 labels={"x": "Category", "y": "Avg Spend ($)"})
+    fig.update_traces(textposition="outside", marker=dict(line=dict(width=0)), width=0.5)
+    fig.update_layout(**get_chart_layout(height=300, show_legend=False))
+    st.plotly_chart(fig, use_container_width=True)
 
 st.divider()
 
-# ── Insight 2: Income Dynamics ────────────────────────────────────────────────
+# ── Insight 2: Loyalty Impact ─────────────────────────────────────────────────
 st.markdown("""
 <div class="section-header">
     <div class="section-accent"></div>
-    <h2>Insight 2 &middot; Income Tier Dynamics</h2>
+    <h2>Insight 2 &middot; Loyalty Member Impact</h2>
 </div>""", unsafe_allow_html=True)
 
 i2l, i2r = st.columns([1, 2], gap="small")
-inc_spend = df.groupby("Income_Level")["Avg_Spend"].mean().reindex(["Low", "Medium", "High"])
-inc_sat   = df.groupby("Income_Level")["Satisfaction_Score"].mean().reindex(["Low", "Medium", "High"])
+loyalty_spend = df.groupby("Loyalty_Member")["Avg_Spend"].mean()
+loyalty_sat   = df.groupby("Loyalty_Member")["Satisfaction_Score"].mean()
 
 with i2l:
+    loy_pct = insights["loyalty_pct"]
     st.markdown(f"""
     <div class="insight-panel">
-        <div class="ip-num">02 — INCOME ANALYSIS</div>
-        <h4>💰 {insights['top_income']} Income Leads Spend</h4>
+        <div class="ip-num">02 — LOYALTY PROGRAMME</div>
+        <h4>❤️ {loy_pct:.1f}% Are Loyal Members</h4>
         <p style="color:#94A3B8;font-size:0.84rem;line-height:1.6;">
-            <strong>{insights['top_income']} Income</strong> customers spend an average of
-            <strong style="color:#A5B4FC;">${insights['top_income_spend']:.2f}</strong>.
-            Tailor premium membership upgrades to this segment to maximize customer lifetime value.
+            Loyal members spend <strong style="color:#34D399;">${loyalty_spend.get('Yes',0):.0f}</strong> on average,
+            vs <strong style="color:#FCA5A5;">${loyalty_spend.get('No',0):.0f}</strong> for non-members.
+            Satisfaction score: <strong style="color:#A5B4FC;">{loyalty_sat.get('Yes',0):.2f}</strong> vs {loyalty_sat.get('No',0):.2f}.
         </p>
-        <div class="badge badge-indigo" style="font-size:0.7rem;">Value Segment</div>
+        <div class="badge badge-green" style="font-size:0.7rem;">High Retention Value</div>
     </div>""", unsafe_allow_html=True)
 
 with i2r:
-    fig2 = px.bar(x=inc_spend.index, y=inc_spend.values,
-                  color=inc_spend.index, color_discrete_map={"High":"#10B981","Medium":"#6366F1","Low":"#EF4444"},
-                  text=[f"${v:.0f}" for v in inc_spend.values],
-                  labels={"x": "Income Level", "y": "Avg Spend ($)"})
-    fig2.update_traces(textposition="outside", width=0.4)
-    fig2.update_layout(**get_chart_layout(height=280, show_legend=False, title="Avg Spend by Income Level"))
+    loy_df = pd.DataFrame({
+        "Loyalty": ["Non-Member", "Loyal Member"],
+        "Avg Spend": [loyalty_spend.get("No", 0), loyalty_spend.get("Yes", 0)],
+        "Avg Satisfaction": [loyalty_sat.get("No", 0), loyalty_sat.get("Yes", 0)],
+    })
+    fig2 = px.bar(loy_df, x="Loyalty", y="Avg Spend",
+                  color="Loyalty", color_discrete_map={"Non-Member":"#EF4444","Loyal Member":"#10B981"},
+                  text=loy_df["Avg Spend"].apply(lambda v: f"${v:.0f}"))
+    fig2.update_traces(textposition="outside", marker=dict(line=dict(width=0)), width=0.35)
+    fig2.update_layout(**get_chart_layout(height=300, show_legend=False, title="Avg Spend: Loyal vs Non-Loyal"))
     st.plotly_chart(fig2, use_container_width=True)
 
 st.divider()
@@ -135,21 +133,21 @@ st.divider()
 st.markdown("""
 <div class="section-header">
     <div class="section-accent"></div>
-    <h2>Insight 3 &middot; Regional Spending &amp; Volume</h2>
+    <h2>Insight 3 &middot; Regional Spending Performance</h2>
 </div>""", unsafe_allow_html=True)
 
 i3l, i3r = st.columns([1, 2], gap="small")
 with i3l:
     st.markdown(f"""
     <div class="insight-panel">
-        <div class="ip-num">03 — REGIONAL LEADER</div>
+        <div class="ip-num">03 — TOP REGION</div>
         <h4>📍 {insights['top_region']}</h4>
         <p style="color:#94A3B8;font-size:0.84rem;line-height:1.6;">
-            The <strong style="color:#A5B4FC;">{insights['top_region']}</strong> region leads in monetary volume with
-            an average spend of <strong style="color:#34D399;">${insights['top_region_spend']:.2f}</strong>.
-            Focus geo-targeted promotions and logistics optimization in this market.
+            The <strong style="color:#A5B4FC;">{insights['top_region']}</strong> region leads with an average spend of
+            <strong style="color:#34D399;">${insights['top_region_spend']:.2f}</strong>.
+            Focus digital campaigns and premium delivery here.
         </p>
-        <div class="badge badge-amber" style="font-size:0.7rem;">Priority Region</div>
+        <div class="badge badge-amber" style="font-size:0.7rem;">High-Value Region</div>
     </div>""", unsafe_allow_html=True)
 
 with i3r:
@@ -157,54 +155,39 @@ with i3r:
     REGION_COLORS = {"Urban": "#6366F1", "Semi-Urban": "#10B981", "Rural": "#F59E0B"}
     fig3 = px.scatter(reg_df, x="Region", y="Avg_Spend", size="Customers",
                       color="Region", color_discrete_map=REGION_COLORS,
-                      text="Region", size_max=50,
+                      text="Region", size_max=60,
                       labels={"Avg_Spend": "Avg Spend ($)"})
     fig3.update_traces(textposition="top center")
-    fig3.update_layout(**get_chart_layout(height=280, show_legend=False, title="Avg Spend & Customer Volume by Region"))
+    fig3.update_layout(**get_chart_layout(height=300, show_legend=False, title="Avg Spend & Volume by Region"))
     st.plotly_chart(fig3, use_container_width=True)
 
 st.divider()
 
-# ── Insight 4: Gender Distribution & Satisfaction ────────────────────────────
+# ── Insight 4: Payment Mode ───────────────────────────────────────────────────
 st.markdown("""
 <div class="section-header">
     <div class="section-accent"></div>
-    <h2>Insight 4 &middot; Gender Demographics &amp; Satisfaction</h2>
+    <h2>Insight 4 &middot; Payment Mode &amp; Satisfaction</h2>
 </div>""", unsafe_allow_html=True)
 
-i4l, i4r = st.columns([1, 2], gap="small")
-gen_spend = df.groupby("Gender")["Avg_Spend"].mean()
-gen_sat   = df.groupby("Gender")["Satisfaction_Score"].mean()
-gen_map   = {"F": "Female", "M": "Male", "Other": "Other"}
-
-with i4l:
-    st.markdown(f"""
-    <div class="insight-panel">
-        <div class="ip-num">04 — GENDER PATTERNS</div>
-        <h4>👥 Demographics Analysis</h4>
-        <p style="color:#94A3B8;font-size:0.84rem;line-height:1.6;">
-            Satisfaction scores remain remarkably balanced across genders (F: {gen_sat.get('F',0):.2f}, M: {gen_sat.get('M',0):.2f}, Other: {gen_sat.get('Other',0):.2f}),
-            showing strong universal brand appeal with tailored engagement opportunities.
-        </p>
-        <div class="badge badge-indigo" style="font-size:0.7rem;">Balanced Demographics</div>
-    </div>""", unsafe_allow_html=True)
-
-with i4r:
-    fig4 = px.bar(x=[gen_map.get(k, k) for k in gen_sat.index], y=gen_sat.values,
-                  color=gen_sat.index, color_discrete_sequence=["#EF4444", "#6366F1", "#F59E0B"],
-                  text=[f"{v:.2f} / 5.0" for v in gen_sat.values],
-                  labels={"x": "Gender", "y": "Avg Satisfaction Score"})
-    fig4.update_traces(textposition="outside", width=0.4)
-    fig4.update_layout(**get_chart_layout(height=280, show_legend=False, title="Avg Satisfaction Score by Gender"))
-    st.plotly_chart(fig4, use_container_width=True)
+pay_sat = df.groupby("Payment_Mode")["Satisfaction_Score"].mean().sort_values(ascending=False)
+pay_cnt = df["Payment_Mode"].value_counts()
+fig4 = px.bar(x=pay_sat.index, y=pay_sat.values,
+              color=pay_sat.index,
+              color_discrete_sequence=["#6366F1","#10B981","#F59E0B","#EF4444","#8B5CF6"],
+              text=[f"{v:.2f}" for v in pay_sat.values],
+              labels={"x": "Payment Mode", "y": "Avg Satisfaction Score"})
+fig4.update_traces(textposition="outside", marker=dict(line=dict(width=0)), width=0.5)
+fig4.update_layout(**get_chart_layout(height=340, show_legend=False, title="Avg Satisfaction Score by Payment Mode"))
+st.plotly_chart(fig4, use_container_width=True)
 
 st.divider()
 
-# ── Insight 5: Age Group Cohorts ──────────────────────────────────────────────
+# ── Insight 5: Age-group analysis ─────────────────────────────────────────────
 st.markdown("""
 <div class="section-header">
     <div class="section-accent"></div>
-    <h2>Insight 5 &middot; Age Group Cohort Behavior</h2>
+    <h2>Insight 5 &middot; Age Group Spending Patterns</h2>
 </div>""", unsafe_allow_html=True)
 
 df["Age_Group"] = pd.cut(df["Age"], bins=[17,25,35,45,55,70],
@@ -219,8 +202,8 @@ with ag1:
                    color_discrete_sequence=["#6366F1","#10B981","#F59E0B","#EF4444","#8B5CF6"],
                    text=[f"${v:.0f}" for v in age_spend.values],
                    labels={"x": "Age Group", "y": "Avg Spend ($)"})
-    fig5a.update_traces(textposition="outside", width=0.45)
-    fig5a.update_layout(**get_chart_layout(height=320, show_legend=False, title="Avg Spend by Age Cohort"))
+    fig5a.update_traces(textposition="outside", marker=dict(line=dict(width=0)), width=0.5)
+    fig5a.update_layout(**get_chart_layout(height=340, show_legend=False, title="Avg Spend by Age Group"))
     st.plotly_chart(fig5a, use_container_width=True)
 
 with ag2:
@@ -229,8 +212,8 @@ with ag2:
                    color_discrete_sequence=["#6366F1","#10B981","#F59E0B","#EF4444","#8B5CF6"],
                    text=[f"{v:.2f}" for v in age_sat.values],
                    labels={"x": "Age Group", "y": "Avg Satisfaction"})
-    fig5b.update_traces(textposition="outside", width=0.45)
-    fig5b.update_layout(**get_chart_layout(height=320, show_legend=False, title="Avg Satisfaction by Age Cohort"))
+    fig5b.update_traces(textposition="outside", marker=dict(line=dict(width=0)), width=0.5)
+    fig5b.update_layout(**get_chart_layout(height=340, show_legend=False, title="Avg Satisfaction by Age Group"))
     st.plotly_chart(fig5b, use_container_width=True)
 
 st.divider()
@@ -243,17 +226,17 @@ st.markdown("""
 </div>""", unsafe_allow_html=True)
 
 recs = [
-    ("fa-id-card",      "#10B981", "Accelerate Membership Conversions",
-     f"With {insights['membership_pct']:.1f}% membership penetration, convert non-members through welcome perks, discount incentives, and exclusive advantages.",
-     "Growth", "High Impact"),
-    ("fa-wallet",       "#6366F1", "High-Income Segment Engagement",
-     f"Target <strong>{insights['top_income']} Income</strong> customers with premium packages and concierge support to drive further average spend gains.",
+    ("fa-trophy",       "#10B981", "Invest in Top Categories",
+     f"Prioritise <strong>{insights['top_category']}</strong> with targeted promotions and premium inventory — it drives the highest average spend.",
      "Revenue", "High Impact"),
-    ("fa-map-location", "#F59E0B", "Regional Expansion Strategy",
-     f"Capitalize on high spend in <strong>{insights['top_region']}</strong> with focused digital marketing and priority service channels.",
-     "Expansion", "Medium Impact"),
-    ("fa-triangle-exclamation", "#EF4444", "Address Low Satisfaction Cohort",
-     f"{insights['low_sat_pct']:.1f}% of customers fall into the low satisfaction tier. Launch proactive survey outreach and instant support resolution.",
+    ("fa-heart",        "#6366F1", "Expand Loyalty Programme",
+     f"With {insights['loyalty_pct']:.1f}% loyalty penetration, there is room to grow. Offer exclusive tiers, early access, and personalised deals to boost retention.",
+     "Retention", "High Impact"),
+    ("fa-map-location", "#F59E0B", "Regional Marketing Strategy",
+     f"Double down on <strong>{insights['top_region']}</strong> campaigns. Consider premium delivery options and geo-targeted promotions for high-spend zones.",
+     "Growth", "Medium Impact"),
+    ("fa-triangle-exclamation", "#EF4444", "Address Low Satisfaction",
+     f"{insights['low_sat_pct']:.1f}% of customers have low satisfaction. Activate targeted re-engagement campaigns with personalised offers and improved support.",
      "Retention", "Critical"),
 ]
 for icon, clr, title, desc, tag, priority in recs:
