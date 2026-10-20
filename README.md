@@ -23,14 +23,15 @@ Customer Behavior Analytics Platform/
 │
 ├── pages/
 │   ├── dashboard.py           # Business dashboard & KPI visualisations
-│   ├── prediction.py          # Satisfaction predictor (RandomForest)
-│   ├── segmentation.py        # Customer segmentation (KMeans)
+│   ├── prediction.py          # Satisfaction predictor (Dual-model Random Forest)
+│   ├── segmentation.py        # Customer segmentation & cluster comparison
 │   └── insights.py            # Strategic business insights
 │
 ├── customer_data.csv          # Raw 10,000-row dataset
 ├── clean_customer_data.csv    # Preprocessed & encoded dataset (for ML)
 │
-├── predictor.pkl              # Trained RandomForestClassifier
+├── predictor.pkl              # Trained RandomForestClassifier (Satisfaction_Class)
+├── regressor.pkl              # Trained RandomForestRegressor (Satisfaction_Score)
 ├── cluster.pkl                # Trained KMeans (4 clusters)
 └── scaler.pkl                 # StandardScaler for clustering
 ```
@@ -45,7 +46,7 @@ This project is built on a **synthetic consumer behaviour dataset** generated fo
 |---|---|
 | **Records** | 10,000 unique customers |
 | **Source** | Synthetic (research-grade) |
-| **Purpose** | Consumer behaviour analysis, ML model training |
+| **Purpose** | Consumer behaviour analysis, ML classification & clustering |
 
 ### Schema
 
@@ -64,101 +65,89 @@ This project is built on a **synthetic consumer behaviour dataset** generated fo
 
 ### Engineered Features (in `clean_customer_data.csv`)
 
-| Column | Encoding |
-|---|---|
-| `Gender_Enc` | F=0, M=1, Other=2 |
-| `Income_Enc` | Low=0, Medium=1, High=2 |
-| `Region_Enc` | Rural=0, Semi-Urban=1, Urban=2 |
-| `Category_Enc` | Apparel=0, Electronics=1, Groceries=2, Health & Beauty=3, Home & Kitchen=4, Sports & Fitness=5 |
-| `Payment_Enc` | Cash=0, Credit Card=1, Debit Card=2, UPI=3, Wallet=4 |
-| `Loyalty_Enc` | No=0, Yes=1 |
-| `Satisfaction_Class` | Score ≤2.0 → 0 (Low), ≤3.5 → 1 (Moderate), >3.5 → 2 (High) |
+| Column | Encoding | Description |
+|---|---|---|
+| `Gender_Enc` | F=0, M=1, Other=2 | Categorical numeric mapping |
+| `Income_Enc` | Low=0, Medium=1, High=2 | Ordinal income tier mapping |
+| `Region_Enc` | Rural=0, Semi-Urban=1, Urban=2 | Location category encoding |
+| `Category_Enc` | Apparel=0, Electronics=1, Groceries=2, Health & Beauty=3, Home & Kitchen=4, Sports & Fitness=5 | Product category encoding |
+| `Payment_Enc` | Cash=0, Credit Card=1, Debit Card=2, UPI=3, Wallet=4 | Transaction mode encoding |
+| `Loyalty_Enc` | No=0, Yes=1 | Binary membership indicator |
+| `Satisfaction_Class` | Score ≤2.0 → 0 (Low), ≤3.5 → 1 (Moderate), >3.5 → 2 (High) | Target discrete satisfaction tier |
 
 ---
 
 ## 🚀 Platform Modules
 
 ### 1. 🏠 Home / Landing Page (`app.py`)
-- Hero banner with platform overview
-- Live KPI ribbon: **Total Customers, Average Spend, Total Revenue, Avg Satisfaction Score**
-- Platform module cards
-- Dataset snapshot: loyalty breakdown, satisfaction tiers, age stats
-- Technology stack overview
+- Hero banner with platform overview and real-time intelligence summary.
+- Live KPI ribbon: **Total Customers, Average Spend, Total Revenue, Avg Satisfaction Score**.
+- Platform module directory and navigation cards.
+- Dataset snapshot: loyalty breakdown, satisfaction tier distribution, and age demographics.
+- Technology stack overview and production-readiness badge indicators.
 
 ---
 
 ### 2. 📊 Business Dashboard (`pages/dashboard.py`)
-- **5 KPI cards** — Customers, Avg Spend, Total Revenue, Avg Score, Loyalty Rate
-- **Satisfaction distribution** — pie chart of Low / Moderate / High classes
-- **Category analysis** — avg spend & score by purchase category
-- **Regional performance** — spend & satisfaction by region
-- **Income level breakdown** — bar charts across income tiers
-- **Payment mode analysis** — distribution of payment preferences
-- **Gender & age demographics** — gender split, age histogram
-- **Spend vs. Satisfaction scatter** — coloured by loyalty membership
+- **5 KPI cards** — Total Customers, Avg Spend, Total Revenue, Avg Score, Loyalty Rate.
+- **Satisfaction distribution** — Donut chart of Low / Moderate / High classes alongside a score histogram.
+- **Category analysis** — Customer distribution and avg spend by product category.
+- **Regional performance** — Average spend comparison across Rural, Semi-Urban, and Urban segments.
+- **Income level breakdown** — Satisfaction levels across Low, Medium, and High income brackets.
+- **Payment mode analysis** — Popularity and revenue share by payment gateway.
+- **Gender & age demographics** — Bimodal age histogram overlaid by gender.
+- **Spend vs. Satisfaction scatter** — Correlation plot with trendline colored by income tier.
 
 ---
 
 ### 3. 🎯 Satisfaction Predictor (`pages/prediction.py`)
-- **ML model:** RandomForestClassifier trained on 10,000 records
-- **Input features:**
-  - Age, Gender, Income Level, Region
-  - Purchase Category, Avg Spend, Payment Mode, Loyalty Member
-- **Output:**
-  - Predicted satisfaction class (Low / Moderate / High)
-  - Probability bar chart for all three classes
-  - Personalised business recommendation based on prediction
-  - Top-5 feature importance chart
-
-**Model Training Details:**
-
-| Property | Value |
-|---|---|
-| Algorithm | RandomForestClassifier |
-| Training samples | 10,000 |
-| Target | Satisfaction_Class (3 classes) |
-| Features | 8 encoded features |
-| Persistence | `predictor.pkl` (joblib) |
+A streamlined, high-accuracy inference engine using **strictly 6 core features**:
+- **Input Features:** `Age`, `Gender`, `Income_Level`, `Region`, `Avg_Spend`, `Loyalty_Member`.
+- **Excluded Features:** `Customer_ID`, `Satisfaction_Score`, `Purchase_Category`, `Payment_Mode` (no target leakage).
+- **Dual-Model Architecture:**
+  1. **Random Forest Classifier**: Trained with a stratified 80/20 train/test split on `Satisfaction_Class`.
+  2. **Random Forest Regressor**: Trained to estimate continuous `Satisfaction_Score` (1.0–5.0).
+- **3 Dynamic Result Cards:**
+  1. **Predicted Outcome**: Classification tier (*Low*, *Moderate*, *High*) with satisfaction threshold indicator.
+  2. **Predicted Satisfaction Score**: Regression estimate (*e.g., 3.30 / 5.0*).
+  3. **Model Confidence**: Probability of the predicted class (*e.g., 45.0%*).
+- **Probability Distribution**: Horizontal bar visualization showing confidence across all 3 classes.
+- **Feature Importance**: Ranked visualization of the 6 predictor weights.
 
 ---
 
 ### 4. 🔵 Customer Segmentation (`pages/segmentation.py`)
-- **ML model:** KMeans clustering (k=4) with StandardScaler normalisation
-- **4 Customer Personas:**
+- **Unsupervised ML:** KMeans clustering ($k=4$) with `StandardScaler` normalization over 5 dimensions (`Age`, `Income_Enc`, `Avg_Spend`, `Category_Enc`, `Loyalty_Enc`).
+- **4 Data-Derived Customer Personas:**
 
-| Cluster | Label | Description |
-|---|---|---|
-| 0 | 🏆 High-Value Loyalists | High spend, loyalty members, top satisfaction |
-| 1 | 💰 Budget Shoppers | Lower spend, price-sensitive, mixed satisfaction |
-| 2 | 💎 Premium Explorers | High income, varied categories, non-loyalty |
-| 3 | 🛒 Occasional Buyers | Infrequent purchases, low–moderate engagement |
+| Cluster | Assigned Persona | Actual Characteristics & Profile | Distribution |
+| :---: | :--- | :--- | :---: |
+| **C0** | **Young Loyalists** | Younger cohort (mean age ~31.0 yrs), **100% Loyalty Members**, Low/Medium income | 2,448 (24.5%) |
+| **C1** | **Mature Loyalists** | Senior demographic (mean age ~56.9 yrs), **100% Loyalty Members**, highest spend ($204) | 2,358 (23.6%) |
+| **C2** | **High-Income Affluents** | **100% High Income tier**, age ~43.7 yrs, moderate loyalty enrollment (58.7%) | 2,003 (20.0%) |
+| **C3** | **Standard Non-Members** | General demographic (~43.2 yrs), **0.0% Loyalty Members** (unenrolled) | 3,191 (31.9%) |
 
-- Cluster summary cards with avg spend, score, loyalty rate
-- Scatter plots: Spend vs Satisfaction, Age vs Spend (coloured by cluster)
-- Category & income breakdown per cluster
-- **Classify-a-new-customer** form → instant cluster assignment
-
-**Clustering Details:**
-
-| Property | Value |
-|---|---|
-| Algorithm | KMeans (k=4) |
-| Features | Age, Income_Enc, Avg_Spend, Category_Enc, Loyalty_Enc |
-| Normalisation | StandardScaler |
-| Persistence | `cluster.pkl` + `scaler.pkl` |
+- **Segment Overview Cards**: Dynamic metrics for customer count, spend, score, and loyalty percentage per cluster.
+- **Cluster Visualisation**: Scatter plots (`Spend vs Satisfaction` and `Age vs Spend`) with consistent color mapping.
+- **Segment Behaviour Breakdown**: Multi-dimensional category preference and income mix charts.
+- **Cluster Comparison Dashboard**:
+  - Customer Count & Percentage Share
+  - Average Spend Comparison ($)
+  - Average Satisfaction Rating
+  - Membership Rate (%)
+  - Summary Data Table
 
 ---
 
 ### 5. 💡 Business Insights (`pages/insights.py`)
-Five automated data-driven insights:
+Five automated, data-driven analytical modules:
+1. **Top Purchase Category** — Revenue and satisfaction leader.
+2. **Loyalty Impact** — Monetary and retention lift comparing members vs. non-members.
+3. **Regional Performance** — Top spending geographies and customer volume.
+4. **Payment Mode vs. Satisfaction** — Customer happiness correlated with payment methods.
+5. **Age Group Dynamics** — Behavioral shifts across age brackets.
 
-1. **Top Purchase Category** — highest avg spend & satisfaction driver
-2. **Loyalty Impact** — satisfaction score delta: members vs. non-members
-3. **Regional Performance** — best & worst performing regions
-4. **Payment Mode vs. Satisfaction** — which payment method correlates with happiest customers
-5. **Age Group Patterns** — satisfaction trends across age cohorts
-
-Plus a **Strategic Recommendations** section with 4 action cards (Loyalty Programme, Category Marketing, Regional Strategy, Payment Optimisation).
+Includes an **Actionable Recommendations** matrix tailored for marketing, retention, and growth operations.
 
 ---
 
@@ -166,10 +155,10 @@ Plus a **Strategic Recommendations** section with 4 action cards (Loyalty Progra
 
 | Layer | Technologies |
 |---|---|
-| **Frontend** | Streamlit 1.53+, Plotly 6.0, Custom CSS Design System |
+| **Frontend** | Streamlit 1.53+, Plotly 6.0, Custom CSS Dark Design System |
 | **Backend** | Python 3.9+, Pandas 2.2, NumPy 2.1 |
-| **Machine Learning** | scikit-learn 1.5 (RandomForest, KMeans, StandardScaler) |
-| **Persistence** | Joblib 1.5 |
+| **Machine Learning** | scikit-learn 1.5 (RandomForestClassifier, RandomForestRegressor, KMeans, StandardScaler) |
+| **Model Persistence** | Joblib 1.5 |
 | **Deployment** | Streamlit Community Cloud |
 
 ---
@@ -187,14 +176,14 @@ cd Customer-Behavior-Analytics-Platform
 pip install -r requirements.txt
 ```
 
-### 3. Run the app
+### 3. Run the application
 ```bash
 streamlit run app.py
 ```
 
 Open **http://localhost:8501** in your browser.
 
-> **Note:** ML models (`predictor.pkl`, `cluster.pkl`, `scaler.pkl`) are included in the repository. If they are missing, the app will auto-train them on first launch using `clean_customer_data.csv`.
+> **Note:** Serialized ML models (`predictor.pkl`, `regressor.pkl`, `cluster.pkl`, `scaler.pkl`) are pre-trained and included in the repository. If absent, the application automatically retrains them on first launch from `clean_customer_data.csv`.
 
 ---
 
@@ -216,12 +205,12 @@ joblib==1.5.3
 | Metric | Value |
 |---|---|
 | Total Customers | 10,000 |
-| Avg Satisfaction Score | ~3.25 / 5.0 |
-| Loyalty Members | ~50% |
-| Purchase Categories | 6 |
+| Avg Satisfaction Score | ~3.00 / 5.0 |
+| Loyalty Program Members | 59.8% |
+| Product Categories | 6 |
 | Customer Segments | 4 |
 | Satisfaction Classes | 3 (Low / Moderate / High) |
-| ML Models | 2 (RandomForest + KMeans) |
+| Trained ML Models | 3 (Random Forest Classifier, Random Forest Regressor, KMeans) |
 
 ---
 
@@ -240,5 +229,5 @@ joblib==1.5.3
 
 ## 🙏 Acknowledgements
 
-- Dataset generated synthetically for research and educational use
-- Built with [Streamlit](https://streamlit.io), [scikit-learn](https://scikit-learn.org), and [Plotly](https://plotly.com)
+- Dataset generated synthetically for research and educational purposes.
+- Built with [Streamlit](https://streamlit.io), [scikit-learn](https://scikit-learn.org), and [Plotly](https://plotly.com).

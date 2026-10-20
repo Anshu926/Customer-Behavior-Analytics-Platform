@@ -5,7 +5,8 @@ import streamlit as st
 import os
 import pandas as pd
 import numpy as np
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.model_selection import train_test_split
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 import joblib
@@ -18,6 +19,7 @@ warnings.filterwarnings('ignore')
 # ============================================================================
 DATA_FILE = "clean_customer_data.csv"
 PREDICTOR_MODEL = "predictor.pkl"
+REGRESSOR_MODEL = "regressor.pkl"
 CLUSTER_MODEL = "cluster.pkl"
 SCALER_MODEL = "scaler.pkl"
 
@@ -34,8 +36,15 @@ PAYMENT_MAPPING   = {"Cash": 0, "Credit Card": 1, "Debit Card": 2, "UPI": 3, "Wa
 PAYMENT_REVERSE   = {v: k for k, v in PAYMENT_MAPPING.items()}
 LOYALTY_MAPPING   = {"No": 0, "Yes": 1}
 SATISFACTION_MAPPING = {0: "Low Satisfaction", 1: "Moderate Satisfaction", 2: "High Satisfaction"}
-PRED_FEATURE_COLS = ["Age", "Gender_Enc", "Income_Enc", "Region_Enc",
-                     "Category_Enc", "Avg_Spend", "Payment_Enc", "Loyalty_Enc"]
+PRED_FEATURE_COLS = ["Age", "Gender_Enc", "Income_Enc", "Region_Enc", "Avg_Spend", "Loyalty_Enc"]
+PRED_FEATURE_DISPLAY_MAP = {
+    "Age": "Age",
+    "Gender_Enc": "Gender",
+    "Income_Enc": "Income Level",
+    "Region_Enc": "Region",
+    "Avg_Spend": "Average Spend",
+    "Loyalty_Enc": "Loyalty Member",
+}
 SEG_FEATURE_COLS  = ["Age", "Income_Enc", "Avg_Spend", "Category_Enc", "Loyalty_Enc"]
 
 # ============================================================================
@@ -546,9 +555,12 @@ def get_data_stats(df):
 def train_satisfaction_model(df):
     X = df[PRED_FEATURE_COLS].copy()
     y = df["Satisfaction_Class"].astype(int)
-    model = RandomForestClassifier(n_estimators=150, max_depth=12, min_samples_split=4,
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42, stratify=y
+    )
+    model = RandomForestClassifier(n_estimators=150, max_depth=10, min_samples_split=4,
                                    min_samples_leaf=2, random_state=42, n_jobs=-1)
-    model.fit(X, y)
+    model.fit(X_train, y_train)
     try: joblib.dump(model, PREDICTOR_MODEL)
     except Exception: pass
     return model
@@ -556,9 +568,36 @@ def train_satisfaction_model(df):
 
 def load_satisfaction_model(df):
     if os.path.exists(PREDICTOR_MODEL):
-        try: return joblib.load(PREDICTOR_MODEL)
+        try:
+            m = joblib.load(PREDICTOR_MODEL)
+            if hasattr(m, "n_features_in_") and m.n_features_in_ == len(PRED_FEATURE_COLS):
+                return m
         except Exception: pass
     return train_satisfaction_model(df)
+
+
+def train_score_regressor(df):
+    X = df[PRED_FEATURE_COLS].copy()
+    y = df["Satisfaction_Score"].astype(float)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42
+    )
+    model = RandomForestRegressor(n_estimators=150, max_depth=10, min_samples_split=4,
+                                  min_samples_leaf=2, random_state=42, n_jobs=-1)
+    model.fit(X_train, y_train)
+    try: joblib.dump(model, REGRESSOR_MODEL)
+    except Exception: pass
+    return model
+
+
+def load_score_regressor(df):
+    if os.path.exists(REGRESSOR_MODEL):
+        try:
+            m = joblib.load(REGRESSOR_MODEL)
+            if hasattr(m, "n_features_in_") and m.n_features_in_ == len(PRED_FEATURE_COLS):
+                return m
+        except Exception: pass
+    return train_score_regressor(df)
 
 
 def train_segmentation_model(df):
@@ -581,8 +620,41 @@ def load_segmentation_model(df):
     return train_segmentation_model(df)
 
 
-def get_cluster_labels():
-    return {0: "High-Value Loyalists", 1: "Budget Shoppers", 2: "Premium Explorers", 3: "Occasional Buyers"}
+def get_cluster_labels(df=None, cluster_col="Cluster"):
+    """
+    Returns persona labels reflecting actual cluster characteristics.
+    If df with cluster assignments is passed, derives the labels dynamically 
+    based on each cluster's dominant demographic and behavioral profile.
+    """
+    if df is not None and cluster_col in df.columns:
+        labels = {}
+        for cid in sorted(df[cluster_col].unique()):
+            sub = df[df[cluster_col] == cid]
+            mean_age = sub["Age"].mean()
+            loyalty_col = "Loyalty_Member" if "Loyalty_Member" in sub.columns else (
+                "Membership_Status" if "Membership_Status" in sub.columns else None
+            )
+            loyalty_rate = (sub[loyalty_col] == "Yes").mean() if loyalty_col else 0.0
+            is_high_income = (sub["Income_Level"] == "High").mean() > 0.8 if "Income_Level" in sub.columns else False
+
+            if is_high_income:
+                labels[cid] = "High-Income Affluents"
+            elif loyalty_rate > 0.8 and mean_age < 40:
+                labels[cid] = "Young Loyalists"
+            elif loyalty_rate > 0.8 and mean_age >= 40:
+                labels[cid] = "Mature Loyalists"
+            elif loyalty_rate < 0.2:
+                labels[cid] = "Standard Non-Members"
+            else:
+                labels[cid] = f"Cluster {cid} (Active Shoppers)"
+        return labels
+
+    return {
+        0: "Young Loyalists",
+        1: "Mature Loyalists",
+        2: "High-Income Affluents",
+        3: "Standard Non-Members"
+    }
 
 
 # ============================================================================
@@ -594,21 +666,27 @@ def prepare_input_for_prediction(user_input):
         "Gender_Enc":   GENDER_MAPPING[user_input["gender"]],
         "Income_Enc":   INCOME_MAPPING[user_input["income"]],
         "Region_Enc":   REGION_MAPPING[user_input["region"]],
-        "Category_Enc": CATEGORY_MAPPING[user_input["category"]],
         "Avg_Spend":    user_input["avg_spend"],
-        "Payment_Enc":  PAYMENT_MAPPING[user_input["payment"]],
         "Loyalty_Enc":  LOYALTY_MAPPING[user_input["loyalty"]],
     }])
 
 
-def predict_satisfaction(model, input_df):
+def predict_satisfaction(model, input_df, reg_model=None):
     prediction = model.predict(input_df)[0]
     probas     = model.predict_proba(input_df)[0]
+    pred_score = None
+    if reg_model is not None:
+        try:
+            raw = float(reg_model.predict(input_df)[0])
+            pred_score = float(np.clip(raw, 1.0, 5.0))
+        except Exception:
+            pred_score = None
     return {
         "prediction": SATISFACTION_MAPPING[prediction],
         "confidence": max(probas) * 100,
-        "class":      prediction,
+        "class":      int(prediction),
         "probas":     probas,
+        "pred_score": pred_score,
     }
 
 
@@ -635,10 +713,11 @@ def segment_customer(kmeans, scaler, user_input):
 
 
 def get_feature_importance(model):
+    features = [PRED_FEATURE_DISPLAY_MAP.get(col, col) for col in PRED_FEATURE_COLS]
     return pd.DataFrame({
-        "Feature": PRED_FEATURE_COLS,
+        "Feature": features,
         "Importance": model.feature_importances_
-    }).sort_values("Importance", ascending=False)
+    }).sort_values("Importance", ascending=True)
 
 
 def get_business_insights(df):

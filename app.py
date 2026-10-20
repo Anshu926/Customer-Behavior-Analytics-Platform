@@ -90,7 +90,7 @@ features = [
     (fc2, "fa-bullseye",    "Satisfaction Predictor",
      "Forecast customer satisfaction using a trained RandomForest model with confidence scores and personalised recommendations."),
     (fc3, "fa-layer-group", "Customer Segmentation",
-     "Discover behavioral personas — High-Value Loyalists, Premium Explorers, Budget Shoppers, Occasional Buyers — through KMeans clustering."),
+     "Discover behavioral personas — Young Loyalists, Mature Loyalists, High-Income Affluents, Standard Non-Members — through KMeans clustering."),
     (fc4, "fa-lightbulb",   "Business Insights",
      "Access data-driven recommendations and analytics. Surface growth opportunities, loyalty impact, and regional performance automatically."),
 ]
