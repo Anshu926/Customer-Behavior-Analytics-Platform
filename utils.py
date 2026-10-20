@@ -20,11 +20,13 @@ warnings.filterwarnings('ignore')
 # ============================================================================
 # CONSTANTS & FEATURE MAPPINGS (10k Synthetic Consumer Behaviour Dataset)
 # ============================================================================
-DATA_FILE = "clean_customer_data.csv"
-PREDICTOR_MODEL = "predictor.pkl"
-REGRESSOR_MODEL = "regressor.pkl"
-CLUSTER_MODEL = "cluster.pkl"
-SCALER_MODEL = "scaler.pkl"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_FILE = os.path.join(BASE_DIR, "clean_customer_data.csv")
+RAW_DATA_FILE = os.path.join(BASE_DIR, "customer_data.csv")
+PREDICTOR_MODEL = os.path.join(BASE_DIR, "predictor.pkl")
+REGRESSOR_MODEL = os.path.join(BASE_DIR, "regressor.pkl")
+CLUSTER_MODEL = os.path.join(BASE_DIR, "cluster.pkl")
+SCALER_MODEL = os.path.join(BASE_DIR, "scaler.pkl")
 
 GENDER_MAPPING    = {"F": 0, "M": 1, "Other": 2}
 GENDER_REVERSE    = {0: "F", 1: "M", 2: "Other"}
@@ -486,10 +488,85 @@ def get_chart_layout(height=400, show_legend=True, title="", margin=None):
 # ============================================================================
 def load_data():
     if os.path.exists(DATA_FILE):
-        return pd.read_csv(DATA_FILE)
-    if os.path.exists("customer_data.csv"):
-        return pd.read_csv("customer_data.csv")
-    raise FileNotFoundError(f"{DATA_FILE} not found.")
+        df = pd.read_csv(DATA_FILE)
+    elif os.path.exists(RAW_DATA_FILE):
+        df = pd.read_csv(RAW_DATA_FILE)
+    elif os.path.exists("clean_customer_data.csv"):
+        df = pd.read_csv("clean_customer_data.csv")
+    elif os.path.exists("customer_data.csv"):
+        df = pd.read_csv("customer_data.csv")
+    else:
+        raise FileNotFoundError(f"Dataset file not found at {DATA_FILE}")
+
+    # Normalize column names: strip whitespace
+    df.columns = df.columns.str.strip()
+
+    # Canonical column aliases
+    col_map = {
+        "Items Purchased": "Items_Purchased",
+        "Discount Applied": "Discount_Applied",
+        "Days Since Last Purchase": "Days_Since_Last_Purchase",
+        "Satisfaction Score": "Satisfaction_Score",
+        "Satisfaction Level": "Satisfaction_Level",
+        "Total Spend": "Avg_Spend",
+        "Total_Spend": "Avg_Spend",
+        "Loyalty Member": "Membership_Status",
+        "Loyalty_Member": "Membership_Status",
+        "Membership Type": "Membership_Status",
+        "Customer ID": "Customer_ID",
+        "Income Level": "Income_Level",
+        "Purchase Category": "Purchase_Category",
+        "Payment Mode": "Payment_Mode",
+    }
+    for old_col, new_col in col_map.items():
+        if old_col in df.columns and new_col not in df.columns:
+            df[new_col] = df[old_col]
+
+    # Ensure required analytics columns exist
+    if "Items_Purchased" not in df.columns:
+        df["Items_Purchased"] = 4
+    if "Discount_Applied" not in df.columns:
+        df["Discount_Applied"] = False
+    if "Days_Since_Last_Purchase" not in df.columns:
+        df["Days_Since_Last_Purchase"] = 25
+    if "Satisfaction_Score" not in df.columns:
+        df["Satisfaction_Score"] = 3.0
+    if "Avg_Spend" not in df.columns:
+        df["Avg_Spend"] = 150.0
+    if "Membership_Status" not in df.columns:
+        df["Membership_Status"] = "No"
+    if "Loyalty_Member" not in df.columns:
+        df["Loyalty_Member"] = df["Membership_Status"]
+
+    # Target classes & levels
+    if "Satisfaction_Class" not in df.columns:
+        if "Satisfaction_Score" in df.columns:
+            df["Satisfaction_Class"] = df["Satisfaction_Score"].apply(
+                lambda s: 0 if s <= 2.0 else (1 if s <= 3.5 else 2)
+            )
+        else:
+            df["Satisfaction_Class"] = 1
+    if "Satisfaction_Level" not in df.columns:
+        level_map = {0: "Low", 1: "Moderate", 2: "High"}
+        df["Satisfaction_Level"] = df["Satisfaction_Class"].map(level_map).fillna("Moderate")
+
+    # Feature encodings (in case raw CSV was loaded)
+    if "Gender_Enc" not in df.columns and "Gender" in df.columns:
+        df["Gender_Enc"] = df["Gender"].map(GENDER_MAPPING).fillna(1).astype(int)
+    if "Income_Enc" not in df.columns and "Income_Level" in df.columns:
+        df["Income_Enc"] = df["Income_Level"].map(INCOME_MAPPING).fillna(1).astype(int)
+    if "Region_Enc" not in df.columns and "Region" in df.columns:
+        df["Region_Enc"] = df["Region"].map(REGION_MAPPING).fillna(1).astype(int)
+    if "Category_Enc" not in df.columns and "Purchase_Category" in df.columns:
+        df["Category_Enc"] = df["Purchase_Category"].map(CATEGORY_MAPPING).fillna(0).astype(int)
+    if "Payment_Enc" not in df.columns and "Payment_Mode" in df.columns:
+        df["Payment_Enc"] = df["Payment_Mode"].map(PAYMENT_MAPPING).fillna(1).astype(int)
+    if "Membership_Enc" not in df.columns and "Membership_Status" in df.columns:
+        df["Membership_Enc"] = df["Membership_Status"].map(MEMBERSHIP_MAPPING).fillna(0).astype(int)
+    if "Discount_Enc" not in df.columns and "Discount_Applied" in df.columns:
+        df["Discount_Enc"] = df["Discount_Applied"].map(DISCOUNT_MAPPING).fillna(0).astype(int)
+
+    return df
 
 
 def get_data_stats(df):

@@ -2,6 +2,10 @@
 Business Insights — 10k Consumer Behaviour Dataset
 """
 import os
+import sys
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
@@ -16,7 +20,7 @@ from utils import load_data, get_business_insights, render_sidebar, get_chart_la
 st.set_page_config(page_title="Business Insights", page_icon="💡", layout="wide", initial_sidebar_state="expanded")
 render_sidebar("insights")
 
-@st.cache_data
+@st.cache_data(ttl=1800)
 def get_data_and_insights():
     df = load_data()
     return df, get_business_insights(df)
@@ -144,6 +148,11 @@ st.markdown("""
 </div>""", unsafe_allow_html=True)
 
 i3l, i3r = st.columns([1, 2], gap="small")
+if "Discount_Applied" not in df.columns:
+    df["Discount_Applied"] = False
+if "Items_Purchased" not in df.columns:
+    df["Items_Purchased"] = 4
+
 disc_grp = df.groupby("Discount_Applied").agg(
     Avg_Spend=("Avg_Spend", "mean"),
     Avg_Items=("Items_Purchased", "mean"),

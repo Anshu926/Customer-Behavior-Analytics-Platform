@@ -2,6 +2,10 @@
 Business Dashboard — KPIs and visualisations (10k Consumer Behaviour Dataset)
 """
 import os
+import sys
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
@@ -16,7 +20,7 @@ from utils import load_data, get_data_stats, render_sidebar, get_chart_layout, F
 st.set_page_config(page_title="Business Dashboard", page_icon="📊", layout="wide", initial_sidebar_state="expanded")
 render_sidebar("dashboard")
 
-@st.cache_data
+@st.cache_data(ttl=1800)
 def get_cached_data():
     return load_data()
 
@@ -144,6 +148,14 @@ st.markdown("""
 b1, b2, b3 = st.columns(3, gap="small")
 
 with b1:
+    # Defensive column guarantees
+    if "Items_Purchased" not in df.columns:
+        df["Items_Purchased"] = 4
+    if "Discount_Applied" not in df.columns:
+        df["Discount_Applied"] = False
+    if "Days_Since_Last_Purchase" not in df.columns:
+        df["Days_Since_Last_Purchase"] = 25
+
     # Items Purchased vs Avg Spend
     items_grp = df.groupby("Items_Purchased")["Avg_Spend"].mean().reset_index()
     fig_items = px.bar(items_grp, x="Items_Purchased", y="Avg_Spend",
