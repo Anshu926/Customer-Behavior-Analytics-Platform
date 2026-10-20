@@ -15,17 +15,19 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
-from utils import load_data, get_business_insights, render_sidebar, get_chart_layout, FA_CDN
+from utils import load_data, get_business_insights, ensure_features, render_sidebar, get_chart_layout, FA_CDN
 
 st.set_page_config(page_title="Business Insights", page_icon="💡", layout="wide", initial_sidebar_state="expanded")
 render_sidebar("insights")
 
 @st.cache_data(ttl=1800)
-def get_data_and_insights():
+def get_data_and_insights(v="v10k_prod"):
     df = load_data()
+    df = ensure_features(df)
     return df, get_business_insights(df)
 
 df, insights = get_data_and_insights()
+df = ensure_features(df)
 total = len(df)
 mem_col = "Membership_Status" if "Membership_Status" in df.columns else "Loyalty_Member"
 

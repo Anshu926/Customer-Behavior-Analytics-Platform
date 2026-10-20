@@ -15,25 +15,28 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 from utils import (
-    load_data, load_satisfaction_model, load_score_regressor, render_sidebar,
+    load_data, load_satisfaction_model, train_satisfaction_model,
+    load_score_regressor, train_score_regressor, ensure_features, render_sidebar,
     get_chart_layout, prepare_input_for_prediction, predict_satisfaction,
     get_satisfaction_recommendation, get_feature_importance, FA_CDN,
     GENDER_MAPPING, INCOME_MAPPING, REGION_MAPPING,
     CATEGORY_MAPPING, PAYMENT_MAPPING, MEMBERSHIP_MAPPING, DISCOUNT_MAPPING,
-    SATISFACTION_MAPPING
+    SATISFACTION_MAPPING, PRED_FEATURE_COLS
 )
 
 st.set_page_config(page_title="Satisfaction Predictor", page_icon="🎯", layout="wide", initial_sidebar_state="expanded")
 render_sidebar("prediction")
 
-@st.cache_resource
-def get_models():
+@st.cache_resource(ttl=3600)
+def load_prediction_pipeline(v="v10k_prod"):
     df = load_data()
+    df = ensure_features(df)
     clf = load_satisfaction_model(df)
     reg = load_score_regressor(df)
     return clf, reg, df
 
-model, reg_model, df = get_models()
+model, reg_model, df = load_prediction_pipeline()
+df = ensure_features(df)
 
 # ── Hero ──────────────────────────────────────────────────────────────────────
 st.markdown(f"""
@@ -97,8 +100,13 @@ st.divider()
 # ── Predict ───────────────────────────────────────────────────────────────────
 if st.button("🎯  Predict Customer Satisfaction", use_container_width=True):
     input_df = prepare_input_for_prediction(user_input)
-    result   = predict_satisfaction(model, input_df, reg_model=reg_model)
-    rec      = get_satisfaction_recommendation(result)
+    try:
+        result = predict_satisfaction(model, input_df, reg_model=reg_model)
+    except Exception:
+        model = train_satisfaction_model(df)
+        reg_model = train_score_regressor(df)
+        result = predict_satisfaction(model, input_df, reg_model=reg_model)
+    rec = get_satisfaction_recommendation(result)
 
     SAT_COLORS = {0: "#EF4444", 1: "#F59E0B", 2: "#10B981"}
     color = SAT_COLORS[result["class"]]
@@ -164,7 +172,11 @@ st.markdown("""
     <h2>RandomForest Feature Importance (11 Features)</h2>
 </div>""", unsafe_allow_html=True)
 
-fi_df = get_feature_importance(model)
+try:
+    fi_df = get_feature_importance(model)
+except Exception:
+    model = train_satisfaction_model(df)
+    fi_df = get_feature_importance(model)
 fig_fi = px.bar(fi_df, x="Importance", y="Feature", orientation="h",
                 color="Importance", color_continuous_scale=["#1F2D45","#6366F1","#A5B4FC"],
                 text=fi_df["Importance"].apply(lambda v: f"{v:.3f}"))

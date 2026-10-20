@@ -484,24 +484,19 @@ def get_chart_layout(height=400, show_legend=True, title="", margin=None):
 
 
 # ============================================================================
-# DATA LOADING
+# DATA LOADING & PREPROCESSING
 # ============================================================================
-def load_data():
-    if os.path.exists(DATA_FILE):
-        df = pd.read_csv(DATA_FILE)
-    elif os.path.exists(RAW_DATA_FILE):
-        df = pd.read_csv(RAW_DATA_FILE)
-    elif os.path.exists("clean_customer_data.csv"):
-        df = pd.read_csv("clean_customer_data.csv")
-    elif os.path.exists("customer_data.csv"):
-        df = pd.read_csv("customer_data.csv")
-    else:
-        raise FileNotFoundError(f"Dataset file not found at {DATA_FILE}")
+def ensure_features(df):
+    """
+    Ensures all expected feature columns, aliases, encodings, and target classes
+    are present in the DataFrame, maintaining compatibility across cached/raw versions.
+    """
+    if df is None:
+        return df
 
-    # Normalize column names: strip whitespace
+    df = df.copy()
     df.columns = df.columns.str.strip()
 
-    # Canonical column aliases
     col_map = {
         "Items Purchased": "Items_Purchased",
         "Discount Applied": "Discount_Applied",
@@ -522,17 +517,17 @@ def load_data():
         if old_col in df.columns and new_col not in df.columns:
             df[new_col] = df[old_col]
 
-    # Ensure required analytics columns exist
+    # Ensure base columns exist
+    if "Age" not in df.columns:
+        df["Age"] = 35
+    if "Avg_Spend" not in df.columns:
+        df["Avg_Spend"] = 150.0
     if "Items_Purchased" not in df.columns:
         df["Items_Purchased"] = 4
-    if "Discount_Applied" not in df.columns:
-        df["Discount_Applied"] = False
     if "Days_Since_Last_Purchase" not in df.columns:
         df["Days_Since_Last_Purchase"] = 25
     if "Satisfaction_Score" not in df.columns:
         df["Satisfaction_Score"] = 3.0
-    if "Avg_Spend" not in df.columns:
-        df["Avg_Spend"] = 150.0
     if "Membership_Status" not in df.columns:
         df["Membership_Status"] = "No"
     if "Loyalty_Member" not in df.columns:
@@ -550,23 +545,38 @@ def load_data():
         level_map = {0: "Low", 1: "Moderate", 2: "High"}
         df["Satisfaction_Level"] = df["Satisfaction_Class"].map(level_map).fillna("Moderate")
 
-    # Feature encodings (in case raw CSV was loaded)
-    if "Gender_Enc" not in df.columns and "Gender" in df.columns:
-        df["Gender_Enc"] = df["Gender"].map(GENDER_MAPPING).fillna(1).astype(int)
-    if "Income_Enc" not in df.columns and "Income_Level" in df.columns:
-        df["Income_Enc"] = df["Income_Level"].map(INCOME_MAPPING).fillna(1).astype(int)
-    if "Region_Enc" not in df.columns and "Region" in df.columns:
-        df["Region_Enc"] = df["Region"].map(REGION_MAPPING).fillna(1).astype(int)
-    if "Category_Enc" not in df.columns and "Purchase_Category" in df.columns:
-        df["Category_Enc"] = df["Purchase_Category"].map(CATEGORY_MAPPING).fillna(0).astype(int)
-    if "Payment_Enc" not in df.columns and "Payment_Mode" in df.columns:
-        df["Payment_Enc"] = df["Payment_Mode"].map(PAYMENT_MAPPING).fillna(1).astype(int)
-    if "Membership_Enc" not in df.columns and "Membership_Status" in df.columns:
-        df["Membership_Enc"] = df["Membership_Status"].map(MEMBERSHIP_MAPPING).fillna(0).astype(int)
-    if "Discount_Enc" not in df.columns and "Discount_Applied" in df.columns:
-        df["Discount_Enc"] = df["Discount_Applied"].map(DISCOUNT_MAPPING).fillna(0).astype(int)
+    # Feature encodings
+    if "Gender_Enc" not in df.columns:
+        df["Gender_Enc"] = df["Gender"].map(GENDER_MAPPING).fillna(1).astype(int) if "Gender" in df.columns else 1
+    if "Income_Enc" not in df.columns:
+        df["Income_Enc"] = df["Income_Level"].map(INCOME_MAPPING).fillna(1).astype(int) if "Income_Level" in df.columns else 1
+    if "Region_Enc" not in df.columns:
+        df["Region_Enc"] = df["Region"].map(REGION_MAPPING).fillna(1).astype(int) if "Region" in df.columns else 1
+    if "Category_Enc" not in df.columns:
+        df["Category_Enc"] = df["Purchase_Category"].map(CATEGORY_MAPPING).fillna(0).astype(int) if "Purchase_Category" in df.columns else 0
+    if "Payment_Enc" not in df.columns:
+        df["Payment_Enc"] = df["Payment_Mode"].map(PAYMENT_MAPPING).fillna(1).astype(int) if "Payment_Mode" in df.columns else 1
+    if "Membership_Enc" not in df.columns:
+        df["Membership_Enc"] = df["Membership_Status"].map(MEMBERSHIP_MAPPING).fillna(0).astype(int) if "Membership_Status" in df.columns else 0
+    if "Discount_Enc" not in df.columns:
+        df["Discount_Enc"] = df["Discount_Applied"].map(DISCOUNT_MAPPING).fillna(0).astype(int) if "Discount_Applied" in df.columns else 0
 
     return df
+
+
+def load_data():
+    if os.path.exists(DATA_FILE):
+        df = pd.read_csv(DATA_FILE)
+    elif os.path.exists(RAW_DATA_FILE):
+        df = pd.read_csv(RAW_DATA_FILE)
+    elif os.path.exists("clean_customer_data.csv"):
+        df = pd.read_csv("clean_customer_data.csv")
+    elif os.path.exists("customer_data.csv"):
+        df = pd.read_csv("customer_data.csv")
+    else:
+        raise FileNotFoundError(f"Dataset file not found at {DATA_FILE}")
+
+    return ensure_features(df)
 
 
 def get_data_stats(df):
@@ -675,7 +685,8 @@ def load_segmentation_model(df):
             km = joblib.load(CLUSTER_MODEL)
             sc = joblib.load(SCALER_MODEL)
             if hasattr(km, "n_features_in_") and km.n_features_in_ == len(SEG_FEATURE_COLS):
-                return km, sc
+                if getattr(sc, "n_features_in_", len(SEG_FEATURE_COLS)) == len(SEG_FEATURE_COLS):
+                    return km, sc
         except Exception:
             pass
     return train_segmentation_model(df)
@@ -760,9 +771,21 @@ def segment_customer(kmeans, scaler, user_input):
 
 
 def get_feature_importance(model):
+    importances = getattr(model, "feature_importances_", None)
+    if importances is None:
+        return pd.DataFrame(columns=["Feature", "Importance"])
+
+    features = getattr(model, "feature_names_in_", None)
+    if features is not None and len(features) == len(importances):
+        feat_list = list(features)
+    elif len(importances) == len(PRED_FEATURE_COLS):
+        feat_list = PRED_FEATURE_COLS
+    else:
+        feat_list = [f"Feature {i+1}" for i in range(len(importances))]
+
     return pd.DataFrame({
-        "Feature": PRED_FEATURE_COLS,
-        "Importance": model.feature_importances_
+        "Feature": feat_list,
+        "Importance": importances
     }).sort_values("Importance", ascending=False)
 
 

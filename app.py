@@ -12,7 +12,7 @@ os.environ["MKL_NUM_THREADS"] = "1"
 
 import streamlit as st
 from utils import (
-    load_data, get_data_stats,
+    load_data, get_data_stats, ensure_features,
     load_satisfaction_model, load_segmentation_model,
     render_sidebar, FA_CDN,
 )
@@ -21,9 +21,10 @@ st.set_page_config(page_title="Customer Analytics Platform", page_icon="📊", l
 
 render_sidebar("app")
 
-@st.cache_resource
-def init_app():
+@st.cache_resource(ttl=3600)
+def init_app(v="v10k_prod"):
     df      = load_data()
+    df      = ensure_features(df)
     stats   = get_data_stats(df)
     pred    = load_satisfaction_model(df)
     km, sc  = load_segmentation_model(df)

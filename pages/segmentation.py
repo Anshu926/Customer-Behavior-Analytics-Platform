@@ -16,7 +16,7 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 from utils import (
-    load_data, load_segmentation_model, render_sidebar,
+    load_data, load_segmentation_model, train_segmentation_model, ensure_features, render_sidebar,
     get_chart_layout, get_cluster_labels,
     INCOME_MAPPING, CATEGORY_MAPPING, MEMBERSHIP_MAPPING, FA_CDN,
     SEG_FEATURE_COLS
@@ -25,13 +25,15 @@ from utils import (
 st.set_page_config(page_title="Customer Segmentation", page_icon="🔵", layout="wide", initial_sidebar_state="expanded")
 render_sidebar("segmentation")
 
-@st.cache_resource
-def get_models():
+@st.cache_resource(ttl=3600)
+def load_segmentation_pipeline(v="v10k_prod"):
     df = load_data()
+    df = ensure_features(df)
     km, sc = load_segmentation_model(df)
     return km, sc, df
 
-kmeans, scaler, df = get_models()
+kmeans, scaler, df = load_segmentation_pipeline()
+df = ensure_features(df)
 
 CLUSTER_COLORS = ["#6366F1", "#10B981", "#EF4444", "#F59E0B"]
 CLUSTER_LABELS = get_cluster_labels()
@@ -51,7 +53,11 @@ st.divider()
 # ── Assign clusters to dataset ───────────────────────────────────────────────
 Xs = df[SEG_FEATURE_COLS].copy()
 df = df.copy()
-df["Cluster"] = kmeans.predict(scaler.transform(Xs))
+try:
+    df["Cluster"] = kmeans.predict(scaler.transform(Xs))
+except Exception:
+    kmeans, scaler = train_segmentation_model(df)
+    df["Cluster"] = kmeans.predict(scaler.transform(Xs))
 df["Segment"] = df["Cluster"].map(CLUSTER_LABELS)
 
 # ── Cluster summary cards ─────────────────────────────────────────────────────
