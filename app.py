@@ -105,87 +105,213 @@ for col, icon, title, desc in features:
 
 st.divider()
 
-# ── Dataset snapshot ──────────────────────────────────────────────────────────
+# ── Dataset Information ───────────────────────────────────────────────────────
 st.markdown("""
 <div class="section-header">
     <div class="section-accent"></div>
-    <h2>Dataset Snapshot &amp; Schema</h2>
+    <h2>Dataset Information &amp; Files</h2>
 </div>
 """, unsafe_allow_html=True)
 
 if models_ready and df is not None:
-    d1, d2, d3, d4 = st.columns(4, gap="small")
+    # 1. Two Data Sources (Kaggle & Zenodo)
+    s_col1, s_col2 = st.columns(2, gap="medium")
 
-    mem_col = "Membership_Status" if "Membership_Status" in df.columns else "Loyalty_Member"
-    loyalty_yes = int((df[mem_col] == "Yes").sum())
-    loyalty_no  = int((df[mem_col] == "No").sum())
-    sat_high    = int((df["Satisfaction_Score"] >= 3.6).sum())
-    sat_mod     = int(((df["Satisfaction_Score"] > 2.0) & (df["Satisfaction_Score"] < 3.6)).sum())
-    sat_low     = int((df["Satisfaction_Score"] <= 2.0).sum())
-    avg_items   = float(df["Items_Purchased"].mean()) if "Items_Purchased" in df.columns else 0.0
-    avg_rec     = float(df["Days_Since_Last_Purchase"].mean()) if "Days_Since_Last_Purchase" in df.columns else 0.0
-
-    with d1:
-        st.metric("Membership Rate", f"{loyalty_yes:,} Yes",
-                  f"{loyalty_yes / len(df) * 100:.1f}% enrolled members")
-    with d2:
-        st.metric("Satisfaction Breakdown", "3 Tiers",
-                  f"High {sat_high:,} · Mod {sat_mod:,} · Low {sat_low:,}")
-    with d3:
-        st.metric("Average Basket Size", f"{avg_items:.1f} items",
-                  f"Range: {df['Items_Purchased'].min()}–{df['Items_Purchased'].max()} items")
-    with d4:
-        st.metric("Avg Days Since Purchase", f"{avg_rec:.1f} days",
-                  f"Average recency interval")
-
-    # Dataset attribution card
-    st.markdown("""
-    <div style="
-        margin-top: 1.2rem;
-        background: linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(17, 24, 39, 0.85) 100%);
-        border: 1px solid rgba(99, 102, 241, 0.25);
-        border-radius: 12px;
-        padding: 1.2rem 1.5rem;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        flex-wrap: wrap;
-        gap: 1rem;
-    ">
-        <div style="display: flex; align-items: center; gap: 1.1rem;">
-            <div style="width: 46px; height: 46px; background: rgba(32, 190, 255, 0.15); border: 1px solid rgba(32, 190, 255, 0.35); border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                <i class="fa-solid fa-database" style="color: #20BEFF; font-size: 1.2rem;"></i>
+    with s_col1:
+        st.markdown("""
+        <div style="
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(17, 24, 39, 0.9) 100%);
+            border: 1px solid rgba(32, 190, 255, 0.28);
+            border-radius: 12px;
+            padding: 1.25rem 1.4rem;
+            margin-bottom: 1rem;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        ">
+            <div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+                    <span style="background:rgba(32, 190, 255, 0.15); border:1px solid rgba(32, 190, 255, 0.35); color:#38BDF8; font-size:0.68rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; padding:0.25rem 0.65rem; border-radius:6px;">
+                        <i class="fa-brands fa-kaggle" style="margin-right:0.35rem;"></i> Data Source 1 &middot; Kaggle
+                    </span>
+                    <span style="color:#94A3B8; font-size:0.75rem; font-weight:600;">@uom190346a</span>
+                </div>
+                <div style="color:#F1F5F9; font-size:1.02rem; font-weight:700; margin-bottom:0.35rem;">
+                    E-Commerce Customer Behavior Dataset
+                </div>
+                <div style="color:#94A3B8; font-size:0.83rem; line-height:1.5; margin-bottom:1rem;">
+                    Benchmark consumer shopping dataset capturing purchasing dynamics, payment channel preferences, basket volumes, loyalty enrollment, and satisfaction scores across demographics.
+                </div>
             </div>
             <div>
-                <div style="color: #FFFFFF; font-size: 1rem; font-weight: 700; letter-spacing: -0.01em;">
-                    Consumer Behaviour Analytics Dataset — 10,000 Records
-                </div>
-                <div style="color: #94A3B8; font-size: 0.82rem; margin-top: 0.25rem;">
-                    Full 14-attribute schema: <strong style="color:#CBD5E1;">Customer_ID, Age, Gender, Income_Level, Region,
-                    Purchase_Category, Avg_Spend, Payment_Mode, Membership_Status, Items_Purchased, Discount_Applied,
-                    Days_Since_Last_Purchase, Satisfaction_Score, Satisfaction_Level</strong>.
-                </div>
+                <a href="https://www.kaggle.com/datasets/uom190346a/e-commerce-customer-behavior-dataset" target="_blank" style="
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 0.5rem;
+                    width: 100%;
+                    background: rgba(32, 190, 255, 0.12);
+                    border: 1px solid rgba(32, 190, 255, 0.35);
+                    color: #FFFFFF !important;
+                    -webkit-text-fill-color: #FFFFFF !important;
+                    border-radius: 8px;
+                    padding: 0.6rem 1rem;
+                    font-size: 0.82rem;
+                    font-weight: 600;
+                    text-decoration: none;
+                    transition: all 0.2s ease;
+                ">
+                    <i class="fa-brands fa-kaggle" style="color: #20BEFF;"></i>
+                    <span>Open Kaggle Source</span>
+                    <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 0.65rem; color: #94A3B8;"></i>
+                </a>
             </div>
         </div>
-        <div>
-            <span style="
-                display: inline-flex;
-                align-items: center;
-                gap: 0.55rem;
-                background: linear-gradient(135deg, #6366F1 0%, #4F46E5 100%);
-                border: 1px solid rgba(255,255,255,0.25);
-                border-radius: 8px;
-                padding: 0.65rem 1.25rem;
-                box-shadow: 0 4px 14px rgba(99,102,241,0.4);
-            ">
-                <i class="fa-solid fa-check-circle" style="color:#FFFFFF; font-size:0.75rem;"></i>
-                <span style="color:#FFFFFF; font-weight:700; font-size:0.85rem; letter-spacing:0.01em;">
-                    10,000 Verified Records
-                </span>
-            </span>
+        """, unsafe_allow_html=True)
+
+    with s_col2:
+        st.markdown("""
+        <div style="
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(17, 24, 39, 0.9) 100%);
+            border: 1px solid rgba(99, 102, 241, 0.28);
+            border-radius: 12px;
+            padding: 1.25rem 1.4rem;
+            margin-bottom: 1rem;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        ">
+            <div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+                    <span style="background:rgba(99, 102, 241, 0.15); border:1px solid rgba(99, 102, 241, 0.35); color:#A5B4FC; font-size:0.68rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; padding:0.25rem 0.65rem; border-radius:6px;">
+                        <i class="fa-solid fa-graduation-cap" style="margin-right:0.35rem;"></i> Data Source 2 &middot; Zenodo
+                    </span>
+                    <span style="color:#94A3B8; font-size:0.75rem; font-weight:600;">Manik Sonawane</span>
+                </div>
+                <div style="color:#F1F5F9; font-size:1.02rem; font-weight:700; margin-bottom:0.35rem;">
+                    Artificial Consumer Shopping Behavior Data for Marketing and Analytics
+                </div>
+                <div style="color:#94A3B8; font-size:0.83rem; line-height:1.5; margin-bottom:1rem;">
+                    Open-access research dataset (10,000 synthetic records) curated for marketing research, consumer segmentation, predictive classification, and retail analytics without PII concerns.
+                </div>
+            </div>
+            <div>
+                <a href="https://zenodo.org/records/17036147" target="_blank" style="
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 0.5rem;
+                    width: 100%;
+                    background: rgba(99, 102, 241, 0.12);
+                    border: 1px solid rgba(99, 102, 241, 0.35);
+                    color: #FFFFFF !important;
+                    -webkit-text-fill-color: #FFFFFF !important;
+                    border-radius: 8px;
+                    padding: 0.6rem 1rem;
+                    font-size: 0.82rem;
+                    font-weight: 600;
+                    text-decoration: none;
+                    transition: all 0.2s ease;
+                ">
+                    <i class="fa-solid fa-atom" style="color: #A5B4FC;"></i>
+                    <span>Open Zenodo Record (DOI: 10.5281/zenodo.17036147)</span>
+                    <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 0.65rem; color: #94A3B8;"></i>
+                </a>
+            </div>
         </div>
-    </div>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
+
+    # 2 & 3. Before Cleaning (Raw) & After Cleaning (Processed) Dataset Cards
+    raw_path = "customer_data.csv"
+    clean_path = "clean_customer_data.csv"
+    raw_exists = os.path.exists(raw_path)
+    clean_exists = os.path.exists(clean_path)
+
+    raw_bytes = None
+    if raw_exists:
+        with open(raw_path, "rb") as f:
+            raw_bytes = f.read()
+
+    clean_bytes = None
+    if clean_exists:
+        with open(clean_path, "rb") as f:
+            clean_bytes = f.read()
+
+    c_raw, c_clean = st.columns(2, gap="medium")
+
+    with c_raw:
+        st.markdown(f"""
+        <div style="
+            background: #111827;
+            border: 1px solid rgba(245, 158, 11, 0.28);
+            border-radius: 12px;
+            padding: 1.25rem 1.4rem;
+            margin-bottom: 0.8rem;
+        ">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+                <span style="background:rgba(245, 158, 11, 0.15); border:1px solid rgba(245, 158, 11, 0.35); color:#FBBF24; font-size:0.68rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; padding:0.25rem 0.65rem; border-radius:6px;">
+                    <i class="fa-solid fa-file-csv" style="margin-right:0.35rem;"></i> Before Cleaning &middot; Raw Dataset
+                </span>
+                <span style="color:#94A3B8; font-size:0.76rem; font-family:monospace; background:rgba(255,255,255,0.05); padding:0.2rem 0.5rem; border-radius:4px;">customer_data.csv</span>
+            </div>
+            <div style="color:#F1F5F9; font-size:1.02rem; font-weight:700; margin-bottom:0.35rem;">
+                Original Customer Behaviour Dataset
+            </div>
+            <div style="color:#94A3B8; font-size:0.83rem; line-height:1.5;">
+                <strong>Purpose:</strong> Stores the original, unaltered consumer records directly as received. Contains human-readable text categories and baseline metrics for authentic business auditing.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        if raw_exists and raw_bytes is not None:
+            st.download_button(
+                label="📥  Download Raw Dataset (customer_data.csv)",
+                data=raw_bytes,
+                file_name="customer_data.csv",
+                mime="text/csv",
+                key="btn_download_raw_csv",
+                use_container_width=True
+            )
+        else:
+            st.warning("⚠️ customer_data.csv is not available for download.")
+
+    with c_clean:
+        st.markdown(f"""
+        <div style="
+            background: #111827;
+            border: 1px solid rgba(16, 185, 129, 0.28);
+            border-radius: 12px;
+            padding: 1.25rem 1.4rem;
+            margin-bottom: 0.8rem;
+        ">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+                <span style="background:rgba(16, 185, 129, 0.15); border:1px solid rgba(16, 185, 129, 0.35); color:#34D399; font-size:0.68rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; padding:0.25rem 0.65rem; border-radius:6px;">
+                    <i class="fa-solid fa-wand-magic-sparkles" style="margin-right:0.35rem;"></i> After Cleaning &middot; Processed Dataset
+                </span>
+                <span style="color:#94A3B8; font-size:0.76rem; font-family:monospace; background:rgba(255,255,255,0.05); padding:0.2rem 0.5rem; border-radius:4px;">clean_customer_data.csv</span>
+            </div>
+            <div style="color:#F1F5F9; font-size:1.02rem; font-weight:700; margin-bottom:0.35rem;">
+                Cleaned, Transformed &amp; Encoded Dataset
+            </div>
+            <div style="color:#94A3B8; font-size:0.83rem; line-height:1.5;">
+                <strong>Purpose:</strong> Cleaned, transformed, and feature-engineered dataset formatted specifically for statistical analytics, Random Forest inference, and K-Means customer segmentation.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        if clean_exists and clean_bytes is not None:
+            st.download_button(
+                label="📥  Download Cleaned Dataset (clean_customer_data.csv)",
+                data=clean_bytes,
+                file_name="clean_customer_data.csv",
+                mime="text/csv",
+                key="btn_download_clean_csv",
+                use_container_width=True
+            )
+        else:
+            st.warning("⚠️ clean_customer_data.csv is not available for download.")
 
 st.divider()
 
@@ -199,40 +325,84 @@ st.markdown("""
 
 t1, t2, t3, t4 = st.columns(4, gap="small")
 stack = [
-    (t1, "fa-desktop",    "Frontend",    ["Streamlit 1.53+", "Plotly Interactive", "Custom Design System"]),
-    (t2, "fa-gear",       "Backend",     ["Python 3.9+", "Pandas &amp; NumPy", "Joblib Persistence"]),
-    (t3, "fa-robot",      "ML / AI",     ["scikit-learn 1.5", "RandomForest (11 Features)", "KMeans (4 Personas)"]),
-    (t4, "fa-cloud",      "Deployment",  ["Streamlit Cloud Ready", "Production Tuned", "Real-time Inference"]),
+    (
+        t1,
+        "fa-desktop",
+        "Frontend",
+        [
+            ("Streamlit", "Interactive web dashboard"),
+            ("Plotly", "Interactive charts and visualizations"),
+            ("Custom CSS", "Dark theme and responsive styling"),
+        ],
+    ),
+    (
+        t2,
+        "fa-table-cells",
+        "Data Processing & Analytics",
+        [
+            ("Pandas & NumPy", "Data cleaning & numerical computations"),
+            ("Data Preprocessing", "Missing values & categorical encoding"),
+            ("Exploratory Data Analysis (EDA)", "Behavioral & pattern discovery"),
+        ],
+    ),
+    (
+        t3,
+        "fa-robot",
+        "Machine Learning",
+        [
+            ("Scikit-learn", "Model development"),
+            ("Random Forest", "Customer satisfaction prediction"),
+            ("K-Means", "Customer segmentation (4 personas)"),
+        ],
+    ),
+    (
+        t4,
+        "fa-cloud",
+        "Deployment & Model Management",
+        [
+            ("Streamlit Cloud", "Deployment support"),
+            ("Joblib", "Model persistence"),
+            ("Real-time Prediction", "Model inference through the dashboard"),
+        ],
+    ),
 ]
 for col, icon, title, items in stack:
-    rows = "".join(f'<div style="color:#4B5A72;font-size:0.78rem;padding:0.18rem 0;display:flex;align-items:center;gap:0.4rem;"><i class="fa-solid fa-check" style="font-size:0.6rem;color:#6366F1;"></i>{i}</div>' for i in items)
+    rows = "".join(
+        f'<div style="color:#94A3B8;font-size:0.79rem;padding:0.32rem 0;display:flex;align-items:flex-start;gap:0.45rem;line-height:1.4;">'
+        f'<i class="fa-solid fa-check" style="font-size:0.62rem;color:#6366F1;margin-top:0.3rem;flex-shrink:0;"></i>'
+        f'<div><strong style="color:#F1F5F9;font-weight:600;">{name}</strong> &mdash; <span>{desc}</span></div>'
+        f'</div>'
+        for name, desc in items
+    )
     with col:
         st.markdown(f"""
-        <div class="feature-card" style="padding:1.1rem 1.2rem;">
+        <div class="feature-card" style="padding:1.25rem 1.3rem;display:flex;flex-direction:column;justify-content:flex-start;height:100%;">
             <div class="fc-icon-wrap"><i class="fa-solid {icon}"></i></div>
-            <div class="fc-title">{title}</div>
-            {rows}
+            <div class="fc-title" style="font-size:0.95rem;font-weight:700;margin-bottom:0.65rem;color:#FFFFFF;min-height:2.4rem;display:flex;align-items:center;">{title}</div>
+            <div style="display:flex;flex-direction:column;gap:0.2rem;">
+                {rows}
+            </div>
         </div>
         """, unsafe_allow_html=True)
 
 # ── Footer ────────────────────────────────────────────────────────────────────
 st.markdown("""
 <div style="
-    margin-top:2rem;padding:1.5rem 2rem;
+    margin-top:2rem;padding:1.6rem 2rem;
     background:linear-gradient(135deg,#111827 0%,#1A2234 100%);
     border:1px solid #1F2D45;border-radius:14px;text-align:center;
 ">
-    <div style="color:#F1F5F9;font-size:1rem;font-weight:600;margin-bottom:0.4rem;">
-        <i class="fa-solid fa-chart-pie" style="color:#6366F1;margin-right:0.4rem;"></i>
+    <div style="color:#F1F5F9;font-size:1.05rem;font-weight:700;margin-bottom:0.4rem;letter-spacing:-0.01em;">
+        <i class="fa-solid fa-chart-pie" style="color:#6366F1;margin-right:0.45rem;"></i>
         Customer Behavior Analytics Platform
     </div>
-    <div style="color:#64748B;font-size:0.8rem;line-height:1.6;">
-        AI-powered analytics &middot; RandomForest &middot; KMeans &middot; 10,000 Consumer Records
+    <div style="color:#94A3B8;font-size:0.83rem;line-height:1.6;">
+        Data-Driven Insights &middot; Customer Satisfaction Prediction &middot; Customer Segmentation &middot; 10,000 Customer Records
     </div>
-    <div style="margin-top:0.8rem;display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap;">
-        <span class="badge badge-indigo"><i class="fa-solid fa-robot"></i> AI Powered</span>
-        <span class="badge badge-green"><i class="fa-solid fa-circle-check"></i> Production Ready</span>
-        <span class="badge badge-amber"><i class="fa-solid fa-chart-bar"></i> Real-time Analytics</span>
+    <div style="margin-top:0.85rem;display:flex;gap:0.6rem;justify-content:center;flex-wrap:wrap;">
+        <span class="badge badge-indigo"><i class="fa-solid fa-brain"></i> Machine Learning</span>
+        <span class="badge badge-amber"><i class="fa-solid fa-chart-line"></i> Interactive Analytics</span>
+        <span class="badge badge-green"><i class="fa-solid fa-users"></i> Customer Insights</span>
     </div>
 </div>
 """, unsafe_allow_html=True)

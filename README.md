@@ -18,20 +18,21 @@
 ```
 Customer Behavior Analytics Platform/
 │
-├── app.py                     # Landing page / home & dataset overview
+├── app.py                     # Landing page, data source attribution & dataset downloads
 ├── utils.py                   # Data loaders, ML pipeline, design system & styling
 ├── requirements.txt           # Pinned dependencies
 │
 ├── pages/
 │   ├── dashboard.py           # Business dashboard, KPIs & behavioral charts
-│   ├── prediction.py          # Satisfaction predictor (RandomForest - 11 features)
-│   ├── segmentation.py        # Customer segmentation (KMeans - 4 personas)
+│   ├── prediction.py          # Satisfaction predictor (Dual-model RF: Tier & 1-5 Score)
+│   ├── segmentation.py        # Customer segmentation (KMeans - 4 personas & insights)
 │   └── insights.py            # Automated diagnostic business insights
 │
 ├── customer_data.csv          # Raw 10,000-row dataset (14 columns)
 ├── clean_customer_data.csv    # Preprocessed & encoded dataset (24 columns)
 │
-├── predictor.pkl              # Trained RandomForestClassifier model
+├── predictor.pkl              # Trained RandomForestClassifier (Satisfaction_Class)
+├── regressor.pkl              # Trained RandomForestRegressor (Satisfaction_Score 1-5)
 ├── cluster.pkl                # Trained KMeans (4 clusters)
 └── scaler.pkl                 # StandardScaler for clustering
 ```
@@ -72,13 +73,26 @@ Customer Behavior Analytics Platform/
 
 ---
 
+## 📦 Data Sources & Dataset Downloads
+
+The platform is driven by 10,000 verified multi-dimensional consumer behaviour records sourced and cross-referenced from benchmark open data repositories:
+
+1. **Kaggle Source:** [E-Commerce Customer Behavior Dataset](https://www.kaggle.com/datasets/uom190346a/e-commerce-customer-behavior-dataset) by `@uom190346a`
+2. **Zenodo Open Access:** [Artificial Consumer Shopping Behavior Data for Marketing and Analytics](https://zenodo.org/records/17036147) by Manik Sonawane (DOI: `10.5281/zenodo.17036147`)
+
+Both datasets are accessible and directly downloadable from the home page:
+- **`customer_data.csv` (Raw Dataset):** 10,000 rows × 14 columns — Original text categories and ground-truth records.
+- **`clean_customer_data.csv` (Processed Dataset):** 10,000 rows × 24 columns — Cleaned, transformed, and feature-engineered with 10 numeric ML encodings.
+
+---
+
 ## 🚀 Platform Modules
 
 ### 1. 🏠 Home Page (`app.py`)
 - Hero banner with enterprise dark aesthetic
 - Live KPI ribbon: **Total Customers, Average Spend, Total Revenue, Avg Satisfaction**
-- Dataset snapshot: Membership enrollment, satisfaction tier breakdown, average items per transaction, recency interval
-- Architecture and technology stack cards
+- **Dataset Information & Attribution:** Dual source links (Kaggle & Zenodo) and direct CSV download options
+- Modernized 4-card **Technology Stack** and interactive project footer banner
 
 ### 2. 📊 Business Dashboard (`pages/dashboard.py`)
 - **6 Executive KPI Cards:** Total Customers, Avg Spend, Total Revenue, Avg Satisfaction, Avg Basket Size, Membership Rate
@@ -90,20 +104,15 @@ Customer Behavior Analytics Platform/
 - **Correlation Engine:** Spend vs satisfaction scatter with trendline
 
 ### 3. 🎯 Satisfaction Predictor (`pages/prediction.py`)
-- **RandomForestClassifier** trained on 10,000 records with 11 behavioral and demographic features
-- **11-Feature Input Form:**
-  - Demographics: Age, Gender, Income Level, Region
-  - Transactions: Category, Avg Spend, Items Purchased, Payment Mode
-  - Engagement: Membership Status, Discount Applied, Days Since Last Purchase
-- **Real-time Inference Output:**
-  - Predicted satisfaction class (Low / Moderate / High)
-  - Confidence percentage
-  - Probability distribution across all three classes
-  - Actionable business recommendation tailored to the outcome
-  - Feature importance ranking
+- **Dual-Model Inference Engine:**
+  - **RandomForestClassifier (11 features):** Forecasts customer satisfaction tier (Low, Moderate, High) with confidence % and class probability distribution.
+  - **RandomForestRegressor (11 features):** Predicts precise continuous **Satisfaction Score (1.0–5.0)**.
+- **11-Feature Input Form:** Demographics, Transaction Economics, and Recency/Loyalty metrics.
+- **Actionable Business Recommendation:** Dynamically generated customer intervention strategy.
+- **Feature Importance Ranking:** Visualized relative predictor weights.
 
 ### 4. 🔵 Customer Segmentation (`pages/segmentation.py`)
-- **KMeans (k=4)** clustering with StandardScaler normalisation on monetary, recency, basket size, income, and loyalty features
+- **KMeans (k=4)** clustering with `StandardScaler` normalisation across 6 behavioral dimensions (`Avg_Spend`, `Items_Purchased`, `Days_Since_Last_Purchase`, `Membership_Enc`, `Income_Enc`, `Age`).
 - **4 Behavioral Personas:**
 
 | Persona | Key Characteristics | Strategy |
@@ -113,8 +122,12 @@ Customer Behavior Analytics Platform/
 | 🎯 **Prospect Shoppers** | 0% membership, recent buyers (~20 days), moderate spend ($178) | Sign-up incentives, welcome vouchers |
 | ⚠️ **At-Risk Inactive** | Long dormancy (58+ days), lowest satisfaction (2.76/5) | Automated win-back campaigns, urgent retention discounts |
 
-- Multi-dimensional visualisations (Spend vs Recency, Basket Size vs Spend, Category preference, Income mix)
-- **Live Persona Classifier:** Instant classification and targeted marketing recommendation for new customer inputs.
+- Multi-dimensional visualisations: Spend vs Recency, Basket Size vs Spend, Category preference, and Income mix.
+- **Segment Insights:** 4 responsive KPI cards displaying dynamically computed metrics for:
+  1. Largest Customer Segment (`Engaged Members` — 3,097 customers, 31.0%)
+  2. Highest Avg-Spending Segment (`High-Value Champions` — $297.21 avg spend)
+  3. Most Inactive Segment (`At-Risk Inactive` — 58.5 days avg inactivity)
+  4. Prospect Shoppers — Conversion Opportunity (`Prospect Shoppers` — 3,061 customers, 30.6%)
 
 ### 5. 💡 Strategic Business Insights (`pages/insights.py`)
 - Executive intelligence summary:
@@ -129,13 +142,12 @@ Customer Behavior Analytics Platform/
 
 ## 🛠️ Technology Stack
 
-| Layer | Tools |
+| Layer | Technologies & Capabilities |
 |---|---|
-| **Frontend** | Streamlit 1.53+, Plotly Interactive Charts, Custom Dark Enterprise CSS |
-| **Backend & Pipeline** | Python 3.9+, Pandas 2.2, NumPy 2.1 |
-| **Machine Learning** | scikit-learn 1.5 (RandomForestClassifier, KMeans, StandardScaler) |
-| **Model Persistence** | Joblib 1.5 |
-| **Deployment** | Streamlit Community Cloud |
+| **Frontend** | Streamlit 1.58, Plotly Interactive Charts, Custom Dark Theme CSS |
+| **Data Processing & Analytics** | Pandas 2.2, NumPy 2.1, Missing Value Validation & Categorical Encodings |
+| **Machine Learning** | scikit-learn 1.5 (`RandomForestClassifier`, `RandomForestRegressor`, `KMeans`, `StandardScaler`) |
+| **Deployment & Model Management** | Streamlit Community Cloud, Joblib 1.5 Persistence, Real-time Dashboard Inference |
 
 ---
 

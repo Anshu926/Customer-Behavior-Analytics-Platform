@@ -11,7 +11,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 from utils import (
-    load_data, load_satisfaction_model, render_sidebar,
+    load_data, load_satisfaction_model, load_score_regressor, render_sidebar,
     get_chart_layout, prepare_input_for_prediction, predict_satisfaction,
     get_satisfaction_recommendation, get_feature_importance, FA_CDN,
     GENDER_MAPPING, INCOME_MAPPING, REGION_MAPPING,
@@ -23,11 +23,13 @@ st.set_page_config(page_title="Satisfaction Predictor", page_icon="🎯", layout
 render_sidebar("prediction")
 
 @st.cache_resource
-def get_model():
+def get_models():
     df = load_data()
-    return load_satisfaction_model(df), df
+    clf = load_satisfaction_model(df)
+    reg = load_score_regressor(df)
+    return clf, reg, df
 
-model, df = get_model()
+model, reg_model, df = get_models()
 
 # ── Hero ──────────────────────────────────────────────────────────────────────
 st.markdown(f"""
@@ -91,7 +93,7 @@ st.divider()
 # ── Predict ───────────────────────────────────────────────────────────────────
 if st.button("🎯  Predict Customer Satisfaction", use_container_width=True):
     input_df = prepare_input_for_prediction(user_input)
-    result   = predict_satisfaction(model, input_df)
+    result   = predict_satisfaction(model, input_df, reg_model=reg_model)
     rec      = get_satisfaction_recommendation(result)
 
     SAT_COLORS = {0: "#EF4444", 1: "#F59E0B", 2: "#10B981"}
@@ -111,11 +113,12 @@ if st.button("🎯  Predict Customer Satisfaction", use_container_width=True):
             <div class="rc-value" style="color:#A5B4FC;">{result['confidence']:.1f}%</div>
         </div>""", unsafe_allow_html=True)
     with r3:
-        class_label = ["Low Satisfaction", "Moderate Satisfaction", "High Satisfaction"][result['class']]
+        score_val = result.get("score", result.get("pred_score", 0.0))
+        score_display = f"{score_val:.2f} / 5.0"
         st.markdown(f"""
         <div class="result-card" style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.25);">
-            <div class="rc-label">Classification Status</div>
-            <div class="rc-value" style="color:#34D399;">{class_label}</div>
+            <div class="rc-label">Satisfaction Score (1–5)</div>
+            <div class="rc-value" style="color:#34D399;">{score_display}</div>
         </div>""", unsafe_allow_html=True)
 
     st.divider()

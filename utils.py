@@ -9,7 +9,7 @@ os.environ["MKL_NUM_THREADS"] = "1"
 import streamlit as st
 import pandas as pd
 import numpy as np
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 import joblib
@@ -22,6 +22,7 @@ warnings.filterwarnings('ignore')
 # ============================================================================
 DATA_FILE = "clean_customer_data.csv"
 PREDICTOR_MODEL = "predictor.pkl"
+REGRESSOR_MODEL = "regressor.pkl"
 CLUSTER_MODEL = "cluster.pkl"
 SCALER_MODEL = "scaler.pkl"
 
@@ -551,6 +552,32 @@ def load_satisfaction_model(df):
     return train_satisfaction_model(df)
 
 
+def train_score_regressor(df):
+    X = df[PRED_FEATURE_COLS].copy()
+    y = df["Satisfaction_Score"].astype(float)
+    model = RandomForestRegressor(
+        n_estimators=100, max_depth=12, min_samples_split=4,
+        min_samples_leaf=2, random_state=42, n_jobs=1
+    )
+    model.fit(X, y)
+    try:
+        joblib.dump(model, REGRESSOR_MODEL)
+    except Exception:
+        pass
+    return model
+
+
+def load_score_regressor(df):
+    if os.path.exists(REGRESSOR_MODEL):
+        try:
+            m = joblib.load(REGRESSOR_MODEL)
+            if hasattr(m, "n_features_in_") and m.n_features_in_ == len(PRED_FEATURE_COLS):
+                return m
+        except Exception:
+            pass
+    return train_score_regressor(df)
+
+
 def train_segmentation_model(df):
     X = df[SEG_FEATURE_COLS].copy()
     scaler = StandardScaler()
@@ -605,14 +632,29 @@ def prepare_input_for_prediction(user_input):
     }])
 
 
-def predict_satisfaction(model, input_df):
+def predict_satisfaction(model, input_df, reg_model=None):
     prediction = model.predict(input_df)[0]
     probas     = model.predict_proba(input_df)[0]
+    pred_score = None
+    if reg_model is not None:
+        try:
+            raw = float(reg_model.predict(input_df)[0])
+            pred_score = float(np.clip(raw, 1.0, 5.0))
+        except Exception:
+            pred_score = None
+
+    if pred_score is None:
+        # Fallback weighted expectation from class probabilities
+        class_centers = [1.72, 2.92, 4.08]
+        pred_score = float(np.clip(sum(p * c for p, c in zip(probas, class_centers)), 1.0, 5.0))
+
     return {
         "prediction": SATISFACTION_MAPPING[prediction],
         "confidence": max(probas) * 100,
         "class":      prediction,
         "probas":     probas,
+        "score":      pred_score,
+        "pred_score": pred_score,
     }
 
 

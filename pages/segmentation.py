@@ -13,7 +13,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from utils import (
     load_data, load_segmentation_model, render_sidebar,
-    get_chart_layout, segment_customer, get_cluster_labels,
+    get_chart_layout, get_cluster_labels,
     INCOME_MAPPING, CATEGORY_MAPPING, MEMBERSHIP_MAPPING, FA_CDN,
     SEG_FEATURE_COLS
 )
@@ -168,50 +168,118 @@ with sb2:
 
 st.divider()
 
-# ── Classify a new customer ───────────────────────────────────────────────────
+# ── Segment Insights ──────────────────────────────────────────────────────────
 st.markdown("""
 <div class="section-header">
     <div class="section-accent"></div>
-    <h2>Classify a Customer into a Persona</h2>
+    <h2>Segment Insights</h2>
 </div>""", unsafe_allow_html=True)
 
-nc1, nc2, nc3 = st.columns(3, gap="medium")
-with nc1:
-    n_age      = st.slider("Customer Age", 18, 69, 35)
-    n_income   = st.selectbox("Income Bracket", ["Low", "Medium", "High"], index=1)
+# 1. Dataset-driven Key Segment Insights
+seg_counts = df["Segment"].value_counts()
+largest_seg = seg_counts.idxmax()
+largest_count = int(seg_counts.max())
+largest_pct = (largest_count / len(df)) * 100
 
-with nc2:
-    n_spend    = st.slider("Average Spend ($)", 10.0, 630.0, 210.0, step=5.0)
-    n_items    = st.slider("Items Purchased (Basket)", 1, 20, 5)
+seg_spend = df.groupby("Segment")["Avg_Spend"].mean()
+highest_spend_seg = seg_spend.idxmax()
+highest_spend_val = float(seg_spend.max())
 
-with nc3:
-    n_recency  = st.slider("Days Since Last Purchase", 1, 90, 20)
-    n_loyalty  = st.selectbox("Membership Status", ["No", "Yes"], index=1)
+rec_col = "Days_Since_Last_Purchase" if "Days_Since_Last_Purchase" in df.columns else "Recency"
+seg_recency = df.groupby("Segment")[rec_col].mean()
+most_inactive_seg = seg_recency.idxmax()
+most_inactive_days = float(seg_recency.max())
 
-if st.button("🔍  Classify Customer Persona", use_container_width=True):
-    seg = segment_customer(kmeans, scaler, {
-        "age": n_age, "income": n_income,
-        "avg_spend": n_spend, "items_purchased": n_items,
-        "days_since_last_purchase": n_recency, "membership": n_loyalty
-    })
-    idx   = list(CLUSTER_LABELS.values()).index(seg)
-    color = CLUSTER_COLORS[idx]
+prospect_seg = "Prospect Shoppers"
+prospect_count = int(seg_counts.get(prospect_seg, (df["Segment"] == prospect_seg).sum()))
+prospect_pct = (prospect_count / len(df)) * 100 if len(df) > 0 else 0.0
 
-    strategies = {
-        "Engaged Members": "Offer loyalty-tier points multipliers, early access sales, and referral bonuses.",
-        "Prospect Shoppers": "Launch a targeted onboarding campaign with welcome discounts to convert into enrolled members.",
-        "At-Risk Inactive": "Deploy high-priority re-engagement incentives, personalized win-back emails, and cart revival offers.",
-        "High-Value Champions": "Deliver VIP concierge treatment, exclusive previews, luxury product bundles, and anniversary gifts.",
-    }
+i1, i2, i3, i4 = st.columns(4, gap="small")
 
+with i1:
     st.markdown(f"""
-    <div style="background:{color}18;border:1px solid {color}55;border-radius:12px;
-                padding:1.5rem;text-align:center;margin-top:0.8rem;">
-        <div style="color:#94A3B8;font-size:0.72rem;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;margin-bottom:0.5rem;">
-            Assigned Behavioral Persona
+    <div class="result-card" style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.28);padding:1.25rem 1.2rem;height:100%;display:flex;flex-direction:column;justify-content:space-between;">
+        <div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;">
+                <div class="rc-label" style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#A5B4FC;">
+                    Largest Customer Segment
+                </div>
+                <i class="fa-solid fa-users" style="color:#818CF8;font-size:1.05rem;"></i>
+            </div>
+            <div style="color:#F1F5F9;font-size:1.18rem;font-weight:700;margin-bottom:0.3rem;">
+                {largest_seg}
+            </div>
+            <div style="color:#818CF8;font-size:0.88rem;font-weight:600;">
+                {largest_count:,} Customers <span style="color:#94A3B8;font-weight:400;font-size:0.78rem;">({largest_pct:.1f}% of total)</span>
+            </div>
         </div>
-        <div style="color:{color};font-size:1.8rem;font-weight:700;margin-bottom:0.6rem;">{seg}</div>
-        <div style="color:#CBD5E1;font-size:0.88rem;max-width:650px;margin:0 auto;line-height:1.6;">
-            <strong>Targeted Strategy:</strong> {strategies.get(seg, '')}
+        <div style="color:#94A3B8;font-size:0.76rem;margin-top:0.45rem;line-height:1.45;">
+            Forms the core volume of active shoppers with consistent purchase habits and high engagement.
+        </div>
+    </div>""", unsafe_allow_html=True)
+
+with i2:
+    st.markdown(f"""
+    <div class="result-card" style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.28);padding:1.25rem 1.2rem;height:100%;display:flex;flex-direction:column;justify-content:space-between;">
+        <div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;">
+                <div class="rc-label" style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#FBBF24;">
+                    Highest Avg-Spending Segment
+                </div>
+                <i class="fa-solid fa-crown" style="color:#F59E0B;font-size:1.05rem;"></i>
+            </div>
+            <div style="color:#F1F5F9;font-size:1.18rem;font-weight:700;margin-bottom:0.3rem;">
+                {highest_spend_seg}
+            </div>
+            <div style="color:#FBBF24;font-size:0.88rem;font-weight:600;">
+                ${highest_spend_val:.2f} <span style="color:#94A3B8;font-weight:400;font-size:0.78rem;">Average Spend</span>
+            </div>
+        </div>
+        <div style="color:#94A3B8;font-size:0.76rem;margin-top:0.45rem;line-height:1.45;">
+            Drives top-tier basket values and revenue yield with the highest customer satisfaction.
+        </div>
+    </div>""", unsafe_allow_html=True)
+
+with i3:
+    st.markdown(f"""
+    <div class="result-card" style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.28);padding:1.25rem 1.2rem;height:100%;display:flex;flex-direction:column;justify-content:space-between;">
+        <div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;">
+                <div class="rc-label" style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#F87171;">
+                    Most Inactive Segment
+                </div>
+                <i class="fa-solid fa-triangle-exclamation" style="color:#EF4444;font-size:1.05rem;"></i>
+            </div>
+            <div style="color:#F1F5F9;font-size:1.18rem;font-weight:700;margin-bottom:0.3rem;">
+                {most_inactive_seg}
+            </div>
+            <div style="color:#F87171;font-size:0.88rem;font-weight:600;">
+                {most_inactive_days:.1f} Days <span style="color:#94A3B8;font-weight:400;font-size:0.78rem;">Average Inactivity</span>
+            </div>
+        </div>
+        <div style="color:#94A3B8;font-size:0.76rem;margin-top:0.45rem;line-height:1.45;">
+            Exhibits extended dormancy and lower review ratings; primary priority for churn prevention.
+        </div>
+    </div>""", unsafe_allow_html=True)
+
+with i4:
+    st.markdown(f"""
+    <div class="result-card" style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.28);padding:1.25rem 1.2rem;height:100%;display:flex;flex-direction:column;justify-content:space-between;">
+        <div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;">
+                <div class="rc-label" style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#34D399;">
+                    Prospect Shoppers &mdash; Conversion Opportunity
+                </div>
+                <i class="fa-solid fa-bullseye" style="color:#10B981;font-size:1.05rem;"></i>
+            </div>
+            <div style="color:#F1F5F9;font-size:1.18rem;font-weight:700;margin-bottom:0.3rem;">
+                {prospect_seg}
+            </div>
+            <div style="color:#34D399;font-size:0.88rem;font-weight:600;">
+                {prospect_count:,} Customers <span style="color:#94A3B8;font-weight:400;font-size:0.78rem;">({prospect_pct:.1f}% of total)</span>
+            </div>
+        </div>
+        <div style="color:#94A3B8;font-size:0.76rem;margin-top:0.45rem;line-height:1.45;">
+            Active frequent shoppers with zero loyalty enrollment; prime opportunity for membership conversion.
         </div>
     </div>""", unsafe_allow_html=True)
